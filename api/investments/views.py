@@ -14,10 +14,19 @@ from api.investments.models import (
     Reservation,
 )
 from api.investments.serializers import (
+    CartAddResponseSerializer,
     CartAddSerializer,
+    CartListResponseSerializer,
     InvestOrderSerializer,
+    InvestmentDetailResponseSerializer,
+    InvestmentListResponseSerializer,
+    InvestmentResponseSerializer,
     ReservationCreateSerializer,
+    ReservationEligibleResponseSerializer,
     ReservationPatchSerializer,
+    ReservationResponseSerializer,
+    SuitabilityQuestionsResponseSerializer,
+    SuitabilityResultSerializer,
     SuitabilitySubmitSerializer,
 )
 from api.products.models import Product
@@ -26,6 +35,10 @@ from api.products.models import Product
 class InvestmentListCreateView(APIView):
     """GET /api/investments — 내 투자 내역 / POST — 투자 주문 (F-INV-04)."""
 
+    @extend_schema(
+        operation_id="api_investments_list",
+        responses=InvestmentListResponseSerializer,
+    )
     def get(self, request):
         qs = (
             Investment.objects.filter(user=request.user)
@@ -62,7 +75,10 @@ class InvestmentListCreateView(APIView):
             }
         )
 
-    @extend_schema(request=InvestOrderSerializer)
+    @extend_schema(
+        request=InvestOrderSerializer,
+        responses={201: InvestmentResponseSerializer},
+    )
     def post(self, request):
         s = InvestOrderSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -82,6 +98,7 @@ class InvestmentListCreateView(APIView):
 class InvestmentDetailView(APIView):
     """GET /api/investments/{id} — 건별 상세 (회차별 상환 현황)."""
 
+    @extend_schema(responses=InvestmentDetailResponseSerializer)
     def get(self, request, pk):
         inv = (
             Investment.objects.filter(pk=pk, user=request.user)
@@ -108,6 +125,7 @@ class InvestmentDetailView(APIView):
 class SuitabilityTestView(APIView):
     """GET 문항 조회 / POST 제출·채점 (F-INV-05)."""
 
+    @extend_schema(responses=SuitabilityQuestionsResponseSerializer)
     def get(self, request):
         latest = (
             request.user.suitability_tests.filter(passed=True)
@@ -129,7 +147,10 @@ class SuitabilityTestView(APIView):
             }
         )
 
-    @extend_schema(request=SuitabilitySubmitSerializer)
+    @extend_schema(
+        request=SuitabilitySubmitSerializer,
+        responses=SuitabilityResultSerializer,
+    )
     def post(self, request):
         s = SuitabilitySubmitSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -144,6 +165,7 @@ class SuitabilityTestView(APIView):
 class CartView(APIView):
     """GET/POST /api/cart (F-INV-06)."""
 
+    @extend_schema(responses=CartListResponseSerializer)
     def get(self, request):
         items = (
             Cart.objects.filter(user=request.user)
@@ -177,7 +199,10 @@ class CartView(APIView):
             )
         return Response({"results": results, "count": len(results)})
 
-    @extend_schema(request=CartAddSerializer)
+    @extend_schema(
+        request=CartAddSerializer,
+        responses={201: CartAddResponseSerializer},
+    )
     def post(self, request):
         s = CartAddSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -189,6 +214,7 @@ class CartView(APIView):
 
 
 class CartItemView(APIView):
+    @extend_schema(responses={204: None})
     def delete(self, request, pk):
         deleted, _ = Cart.objects.filter(pk=pk, user=request.user).delete()
         if not deleted:
@@ -199,6 +225,7 @@ class CartItemView(APIView):
 class ReservationEligibleView(APIView):
     """GET /api/reservations/eligible — 만기 임박 + 재모집 대상 투자."""
 
+    @extend_schema(responses=ReservationEligibleResponseSerializer)
     def get(self, request):
         soon = timezone.now().date() + timezone.timedelta(days=45)
         invs = (
@@ -233,7 +260,10 @@ class ReservationEligibleView(APIView):
 
 
 class ReservationListCreateView(APIView):
-    @extend_schema(request=ReservationCreateSerializer)
+    @extend_schema(
+        request=ReservationCreateSerializer,
+        responses={201: ReservationResponseSerializer},
+    )
     def post(self, request):
         s = ReservationCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -268,7 +298,10 @@ class ReservationDetailView(APIView):
             raise NotFound()
         return res
 
-    @extend_schema(request=ReservationPatchSerializer)
+    @extend_schema(
+        request=ReservationPatchSerializer,
+        responses=ReservationResponseSerializer,
+    )
     def patch(self, request, pk):
         res = self._get(request, pk)
         if res.status != Reservation.Status.RESERVED:
@@ -281,6 +314,7 @@ class ReservationDetailView(APIView):
         res.save(update_fields=["amount"])
         return Response({"id": res.id, "status": res.status, "amount": res.amount})
 
+    @extend_schema(responses={204: None})
     def delete(self, request, pk):
         res = self._get(request, pk)
         if res.status != Reservation.Status.RESERVED:

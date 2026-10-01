@@ -9,11 +9,18 @@ from api.accounts import services
 from api.accounts.models import AppLoginCode, User
 from api.accounts.serializers import (
     AppCodeExchangeSerializer,
+    AppCodeIssueResponseSerializer,
+    IdentityVerifyResponseSerializer,
     IdentityVerifySerializer,
+    LoginResponseSerializer,
     LoginSerializer,
+    OkResponseSerializer,
     PinLoginSerializer,
+    PinRegisterResponseSerializer,
     PinRegisterSerializer,
+    ReauthResponseSerializer,
     ReauthSerializer,
+    SignupResponseSerializer,
     SignupSerializer,
     UserSerializer,
 )
@@ -39,7 +46,10 @@ class SignupView(APIView):
     permission_classes = (AllowAny,)
     role = User.Role.INVESTOR
 
-    @extend_schema(request=SignupSerializer)
+    @extend_schema(
+        request=SignupSerializer,
+        responses={201: SignupResponseSerializer},
+    )
     def post(self, request):
         s = SignupSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -77,7 +87,7 @@ class BorrowerSignupView(SignupView):
 class LoginView(APIView):
     permission_classes = (AllowAny,)
 
-    @extend_schema(request=LoginSerializer)
+    @extend_schema(request=LoginSerializer, responses=LoginResponseSerializer)
     def post(self, request):
         s = LoginSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -90,7 +100,7 @@ class LoginView(APIView):
 class PinLoginView(APIView):
     permission_classes = (AllowAny,)
 
-    @extend_schema(request=PinLoginSerializer)
+    @extend_schema(request=PinLoginSerializer, responses=LoginResponseSerializer)
     def post(self, request):
         s = PinLoginSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -110,6 +120,7 @@ class PinLoginView(APIView):
 
 
 class LogoutView(APIView):
+    @extend_schema(request=None, responses=OkResponseSerializer)
     def post(self, request):
         raw = request.COOKIES.get(REFRESH_COOKIE)
         if raw:
@@ -123,6 +134,7 @@ class LogoutView(APIView):
 class RefreshView(APIView):
     permission_classes = (AllowAny,)
 
+    @extend_schema(request=None, responses=LoginResponseSerializer)
     def post(self, request):
         raw = request.COOKIES.get(REFRESH_COOKIE)
         if not raw:
@@ -142,7 +154,10 @@ class IdentityVerifyView(APIView):
 
     permission_classes = (AllowAny,)
 
-    @extend_schema(request=IdentityVerifySerializer)
+    @extend_schema(
+        request=IdentityVerifySerializer,
+        responses=IdentityVerifyResponseSerializer,
+    )
     def post(self, request):
         s = IdentityVerifySerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -163,7 +178,10 @@ class IdentityVerifyView(APIView):
 
 
 class PinRegisterView(APIView):
-    @extend_schema(request=PinRegisterSerializer)
+    @extend_schema(
+        request=PinRegisterSerializer,
+        responses=PinRegisterResponseSerializer,
+    )
     def post(self, request):
         s = PinRegisterSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -172,7 +190,7 @@ class PinRegisterView(APIView):
 
 
 class ReauthView(APIView):
-    @extend_schema(request=ReauthSerializer)
+    @extend_schema(request=ReauthSerializer, responses=ReauthResponseSerializer)
     def post(self, request):
         s = ReauthSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -185,6 +203,7 @@ class ReauthView(APIView):
 class AppCodeIssueView(APIView):
     """앱(로그인 상태)이 발급하는 일회용 코드."""
 
+    @extend_schema(request=None, responses=AppCodeIssueResponseSerializer)
     def post(self, request):
         code = services.issue_app_code(request.user)
         return Response({"code": code.code, "expires_in": 60})
@@ -193,7 +212,9 @@ class AppCodeIssueView(APIView):
 class AppCodeExchangeView(APIView):
     permission_classes = (AllowAny,)
 
-    @extend_schema(request=AppCodeExchangeSerializer)
+    @extend_schema(
+        request=AppCodeExchangeSerializer, responses=LoginResponseSerializer
+    )
     def post(self, request):
         s = AppCodeExchangeSerializer(data=request.data)
         s.is_valid(raise_exception=True)

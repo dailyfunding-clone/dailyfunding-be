@@ -5,6 +5,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.common.exceptions import NotFound
+from api.contents.serializers import (
+    DisclosureListResponseSerializer,
+    EventDetailSerializer,
+    EventEnterResponseSerializer,
+    EventListResponseSerializer,
+    FaqKeywordsSerializer,
+    FaqListResponseSerializer,
+    NewsListResponseSerializer,
+    NoticeDetailSerializer,
+    NoticeListResponseSerializer,
+    TermSerializer,
+)
 from api.contents.models import (
     Disclosure,
     Event,
@@ -41,6 +53,10 @@ def _paginate(request, qs):
 class NoticeListView(APIView):
     permission_classes = (AllowAny,)
 
+    @extend_schema(
+        operation_id="api_notices_list",
+        responses=NoticeListResponseSerializer,
+    )
     def get(self, request):
         qs = Notice.objects.all().order_by("-id")
         if request.query_params.get("category"):
@@ -68,6 +84,7 @@ class NoticeListView(APIView):
 class NoticeDetailView(APIView):
     permission_classes = (AllowAny,)
 
+    @extend_schema(responses=NoticeDetailSerializer)
     def get(self, request, pk):
         n = Notice.objects.filter(pk=pk).first()
         if n is None:
@@ -87,6 +104,7 @@ class NoticeDetailView(APIView):
 class FaqListView(APIView):
     permission_classes = (AllowAny,)
 
+    @extend_schema(responses=FaqListResponseSerializer)
     def get(self, request):
         qs = Faq.objects.all().order_by("-id")
         if request.query_params.get("category"):
@@ -115,6 +133,7 @@ class FaqListView(APIView):
 class FaqKeywordsView(APIView):
     permission_classes = (AllowAny,)
 
+    @extend_schema(responses=FaqKeywordsSerializer)
     def get(self, request):
         return Response({"keywords": POPULAR_KEYWORDS})
 
@@ -122,6 +141,10 @@ class FaqKeywordsView(APIView):
 class EventListView(APIView):
     permission_classes = (AllowAny,)
 
+    @extend_schema(
+        operation_id="api_events_list",
+        responses=EventListResponseSerializer,
+    )
     def get(self, request):
         qs = Event.objects.all().order_by("-id")
         if request.query_params.get("status"):
@@ -150,6 +173,7 @@ class EventListView(APIView):
 class EventDetailView(APIView):
     permission_classes = (AllowAny,)
 
+    @extend_schema(responses=EventDetailSerializer)
     def get(self, request, pk):
         e = Event.objects.filter(pk=pk).first()
         if e is None:
@@ -182,6 +206,7 @@ class EventDetailView(APIView):
 class EventEnterView(APIView):
     """이벤트 참여 → 포인트 적립 규칙 연동 (F-CON-03)."""
 
+    @extend_schema(request=None, responses=EventEnterResponseSerializer)
     @transaction.atomic
     def post(self, request, pk):
         e = Event.objects.filter(pk=pk, status=Event.Status.ONGOING).first()
@@ -204,6 +229,7 @@ class EventEnterView(APIView):
 class DisclosureListView(APIView):
     permission_classes = (AllowAny,)
 
+    @extend_schema(responses=DisclosureListResponseSerializer)
     def get(self, request):
         year = request.query_params.get("year")
         month = request.query_params.get("month")
@@ -238,6 +264,7 @@ class DisclosureListView(APIView):
 class NewsListView(APIView):
     permission_classes = (AllowAny,)
 
+    @extend_schema(responses=NewsListResponseSerializer)
     def get(self, request):
         qs = News.objects.all().order_by("-published_at", "-id")
         cursor = request.query_params.get("cursor")
@@ -265,6 +292,7 @@ class NewsListView(APIView):
 class TermDetailView(APIView):
     permission_classes = (AllowAny,)
 
+    @extend_schema(responses=TermSerializer)
     def get(self, request, key):
         t = Term.objects.filter(key=key).first()
         if t is None:

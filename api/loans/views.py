@@ -34,6 +34,40 @@ class LoanApplicationSerializer(serializers.Serializer):
     agree_marketing = serializers.BooleanField(required=False, default=False)
 
 
+class LoanProductSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    category = serializers.CharField()
+    name = serializers.CharField()
+    summary = serializers.CharField()
+    target = serializers.CharField()
+    max_limit = serializers.IntegerField()
+    rate_range = serializers.ListField(child=serializers.CharField())
+    term_desc = serializers.CharField()
+    repay_method = serializers.CharField()
+
+
+class LoanProductDetailSerializer(LoanProductSerializer):
+    features = serializers.ListField()
+    steps = serializers.ListField()
+    info = serializers.DictField()
+    faqs = serializers.ListField()
+    notices = serializers.CharField(allow_blank=True)
+
+
+class LoanProductListResponseSerializer(serializers.Serializer):
+    results = LoanProductSerializer(many=True)
+
+
+class LimitCheckResponseSerializer(serializers.Serializer):
+    limit = serializers.IntegerField()
+    rate_range = serializers.ListField(child=serializers.CharField())
+
+
+class LoanApplicationResponseSerializer(serializers.Serializer):
+    application_id = serializers.IntegerField()
+    status = serializers.CharField()
+
+
 def _mock_limit(d):
     """모의 심사: 입력 해시로 결정론적 한도·금리 산출."""
     seed = int(
@@ -54,6 +88,10 @@ class LoanProductListView(APIView):
 
     permission_classes = (AllowAny,)
 
+    @extend_schema(
+        operation_id="api_loans_list",
+        responses=LoanProductListResponseSerializer,
+    )
     def get(self, request):
         qs = LoanProduct.objects.filter(is_active=True)
         category = request.query_params.get("category", "all")
@@ -82,6 +120,7 @@ class LoanProductListView(APIView):
 class LoanProductDetailView(APIView):
     permission_classes = (AllowAny,)
 
+    @extend_schema(responses=LoanProductDetailSerializer)
     def get(self, request, pk):
         p = LoanProduct.objects.filter(pk=pk, is_active=True).first()
         if p is None:
@@ -111,7 +150,9 @@ class LimitCheckView(APIView):
 
     permission_classes = (AllowAny,)
 
-    @extend_schema(request=LimitCheckSerializer)
+    @extend_schema(
+        request=LimitCheckSerializer, responses=LimitCheckResponseSerializer
+    )
     def post(self, request):
         s = LimitCheckSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -132,7 +173,10 @@ class LoanApplicationView(APIView):
 
     permission_classes = (AllowAny,)
 
-    @extend_schema(request=LoanApplicationSerializer)
+    @extend_schema(
+        request=LoanApplicationSerializer,
+        responses={201: LoanApplicationResponseSerializer},
+    )
     def post(self, request):
         s = LoanApplicationSerializer(data=request.data)
         s.is_valid(raise_exception=True)

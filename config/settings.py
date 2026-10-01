@@ -16,7 +16,9 @@ def env_bool(key, default=False):
     return env(key, "1" if default else "0").lower() in ("1", "true", "yes", "on")
 
 
-SECRET_KEY = env("SECRET_KEY", "dev-secret-key-change-me")
+SECRET_KEY = env(
+    "SECRET_KEY", "dev-secret-key-change-me-32bytes-minimum!!"
+)
 DEBUG = env_bool("DEBUG", True)
 ALLOWED_HOSTS = env("ALLOWED_HOSTS", "*").split(",") if env("ALLOWED_HOSTS") else ["*"]
 

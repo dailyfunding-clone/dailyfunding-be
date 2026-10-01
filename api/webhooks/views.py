@@ -6,6 +6,8 @@ import time
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -44,6 +46,22 @@ class _BankWebhookView(APIView):
 
     event_type = ""
 
+    @extend_schema(
+        request=inline_serializer(
+            name="BankWebhookPayload",
+            fields={
+                "event_id": serializers.CharField(),
+                "type": serializers.CharField(),
+            },
+        ),
+        responses=inline_serializer(
+            name="BankWebhookAck",
+            fields={
+                "received": serializers.BooleanField(),
+                "deduplicated": serializers.BooleanField(required=False),
+            },
+        ),
+    )
     def post(self, request):
         signature = verify_signature(request)
         try:

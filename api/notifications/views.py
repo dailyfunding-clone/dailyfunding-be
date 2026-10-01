@@ -17,10 +17,34 @@ class NotifSettingSerializer(serializers.Serializer):
     repayment = serializers.BooleanField(required=False)
 
 
+class NotifSettingResponseSerializer(serializers.Serializer):
+    new_product = serializers.BooleanField()
+    recruit_closed = serializers.BooleanField()
+    repayment = serializers.BooleanField()
+
+
+class DeviceResponseSerializer(serializers.Serializer):
+    registered = serializers.BooleanField()
+
+
+class NotificationItemSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    kind = serializers.CharField()
+    title = serializers.CharField()
+    body = serializers.CharField()
+    created_at = serializers.DateTimeField()
+
+
+class NotificationListResponseSerializer(serializers.Serializer):
+    results = NotificationItemSerializer(many=True)
+
+
 class DeviceView(APIView):
     """POST /api/devices — 푸시 토큰 등록."""
 
-    @extend_schema(request=DeviceSerializer)
+    @extend_schema(
+        request=DeviceSerializer, responses={201: DeviceResponseSerializer}
+    )
     def post(self, request):
         s = DeviceSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -37,7 +61,10 @@ class DeviceView(APIView):
 class NotificationSettingsView(APIView):
     """POST /api/notifications/settings — 카테고리별 ON/OFF."""
 
-    @extend_schema(request=NotifSettingSerializer)
+    @extend_schema(
+        request=NotifSettingSerializer,
+        responses=NotifSettingResponseSerializer,
+    )
     def post(self, request):
         s = NotifSettingSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -55,6 +82,7 @@ class NotificationSettingsView(APIView):
 
 
 class NotificationListView(APIView):
+    @extend_schema(responses=NotificationListResponseSerializer)
     def get(self, request):
         rows = Notification.objects.filter(user=request.user).order_by("-id")[:100]
         return Response(

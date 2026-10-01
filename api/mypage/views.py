@@ -2,7 +2,7 @@ import calendar
 from datetime import date
 
 from django.db.models import Sum
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,8 +11,110 @@ from api.accounts.models import GRADE_LIMITS, GradeRequest
 from api.common.auth import require_reauth
 from api.common.exceptions import ValidationFailed
 from api.investments.models import Investment, RepaymentSchedule
+from api.investments.serializers import InvestmentListResponseSerializer
 from api.investments.services import invested_sums
 from api.ledger import services as ledger
+
+
+class _ProfileSerializer(serializers.Serializer):
+    name = serializers.CharField(allow_blank=True)
+    email = serializers.EmailField()
+    grade = serializers.CharField()
+    identity_verified = serializers.BooleanField()
+
+
+class _VirtualAccountSerializer(serializers.Serializer):
+    bank = serializers.CharField()
+    account_no = serializers.CharField()
+    holder = serializers.CharField()
+
+
+class _LimitsSerializer(serializers.Serializer):
+    total_remaining = serializers.IntegerField(allow_null=True)
+    mortgage_remaining = serializers.IntegerField(allow_null=True)
+
+
+class _ActiveSerializer(serializers.Serializer):
+    invested = serializers.IntegerField()
+    principal_remaining = serializers.IntegerField()
+    interest_received_net = serializers.IntegerField()
+    interest_expected_net = serializers.IntegerField()
+
+
+class _PastSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    interest_received_net = serializers.IntegerField()
+
+
+class DashboardResponseSerializer(serializers.Serializer):
+    profile = _ProfileSerializer()
+    virtual_account = _VirtualAccountSerializer(allow_null=True)
+    deposit = serializers.IntegerField()
+    points = serializers.IntegerField()
+    limits = _LimitsSerializer()
+    active = _ActiveSerializer()
+    past = _PastSerializer()
+
+
+class CalendarDaySerializer(serializers.Serializer):
+    date = serializers.DateField()
+    principal = serializers.IntegerField()
+    interest_net = serializers.IntegerField()
+    status = serializers.CharField()
+
+
+class CalendarMonthlySerializer(serializers.Serializer):
+    principal_done = serializers.IntegerField()
+    principal_scheduled = serializers.IntegerField()
+    interest_done_net = serializers.IntegerField()
+    interest_scheduled_net = serializers.IntegerField()
+
+
+class CalendarResponseSerializer(serializers.Serializer):
+    days = CalendarDaySerializer(many=True)
+    monthly = CalendarMonthlySerializer()
+
+
+class GradeLimitsSerializer(serializers.Serializer):
+    total = serializers.IntegerField(allow_null=True)
+    real_estate = serializers.IntegerField(allow_null=True)
+    same_borrower = serializers.IntegerField(allow_null=True)
+    per_product_pct = serializers.FloatField(allow_null=True)
+
+
+class GradeUsedSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    real_estate = serializers.IntegerField()
+
+
+class GradeResponseSerializer(serializers.Serializer):
+    grade = serializers.CharField()
+    limits = GradeLimitsSerializer()
+    used = GradeUsedSerializer()
+
+
+class GradeHistoryItemSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    to_grade = serializers.CharField()
+    status = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    decided_at = serializers.DateTimeField(allow_null=True)
+
+
+class GradeHistoryResponseSerializer(serializers.Serializer):
+    results = GradeHistoryItemSerializer(many=True)
+
+
+class GradeRequestResponseSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+
+
+class LimitAssessmentResponseSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+    eligible_grades = serializers.ListField(child=serializers.CharField())
+    simulation = serializers.BooleanField()
 
 
 def _fmt(n):
@@ -22,6 +124,7 @@ def _fmt(n):
 class DashboardView(APIView):
     """GET /api/me/dashboard (F-MY-01)."""
 
+    @extend_schema(responses=DashboardResponseSerializer)
     def get(self, request):
         user = request.user
         va = getattr(user, "virtual_account", None)
@@ -108,6 +211,13 @@ class DashboardView(APIView):
 class CalendarView(APIView):
     """GET /api/me/calendar?year=&month= (F-MY-02)."""
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("year", int, required=True),
+            OpenApiParameter("month", int, required=True),
+        ],
+        responses=CalendarResponseSerializer,
+    )
     def get(self, request):
         try:
             year = int(request.query_params.get("year", ""))
@@ -150,6 +260,7 @@ class CalendarView(APIView):
 class GradeView(APIView):
     """GET /api/me/grade (F-MY-05)."""
 
+    @extend_schema(responses=GradeResponseSerializer)
     def get(self, request):
         user = request.user
         limits = GRADE_LIMITS[user.grade]
@@ -169,6 +280,7 @@ class GradeView(APIView):
 
 
 class GradeHistoryView(APIView):
+    @extend_schema(responses=GradeHistoryResponseSerializer)
     def get(self, request):
         rows = GradeRequest.objects.filter(user=request.user).order_by("-id")
         return Response(
@@ -194,7 +306,10 @@ class GradeRequestSerializer(serializers.Serializer):
 class GradeRequestView(APIView):
     """POST /api/me/grade-request — 등급 변경 신청 (서류 multipart)."""
 
-    @extend_schema(request=GradeRequestSerializer)
+    @extend_schema(
+        request=GradeRequestSerializer,
+        responses={201: GradeRequestResponseSerializer},
+    )
     def post(self, request):
         require_reauth(request)
         s = GradeRequestSerializer(data=request.data)
@@ -210,6 +325,9 @@ class GradeRequestView(APIView):
 class LimitAssessmentView(APIView):
     """POST /api/me/limit-assessment — 원스톱 한도심사 (모의)."""
 
+    @extend_schema(
+        request=None, responses={201: LimitAssessmentResponseSerializer}
+    )
     def post(self, request):
         if not request.user.identity_verified:
             raise ValidationFailed("identity verification required first")
@@ -233,6 +351,7 @@ class LimitAssessmentView(APIView):
 class MyInvestmentsView(APIView):
     """GET /api/me/investments — 투자내역 필터 (F-MY-03)."""
 
+    @extend_schema(responses=InvestmentListResponseSerializer)
     def get(self, request):
         from api.investments.views import InvestmentListCreateView
 

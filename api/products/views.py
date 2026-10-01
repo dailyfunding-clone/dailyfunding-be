@@ -11,7 +11,11 @@ from api.common.exceptions import NotFound, ValidationFailed
 from api.ledger import services as ledger
 from api.products.models import Product
 from api.products.schedule import schedule_summary
-from api.products.serializers import ProductDetailSerializer, ProductListSerializer
+from api.products.serializers import (
+    ProductDetailSerializer,
+    ProductListSerializer,
+    SchedulePreviewSerializer,
+)
 
 
 class ProductListView(ListAPIView):
@@ -157,6 +161,7 @@ class SchedulePreviewView(APIView):
 
     permission_classes = (AllowAny,)
 
+    @extend_schema(responses=SchedulePreviewSerializer)
     def get(self, request, pk):
         product = Product.objects.filter(pk=pk).first()
         if product is None:

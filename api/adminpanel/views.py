@@ -2,7 +2,11 @@ import random
 from datetime import date, datetime
 
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    extend_schema,
+    inline_serializer,
+)
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -43,9 +47,153 @@ class ProductUpsertSerializer(serializers.Serializer):
     refinance_of = serializers.IntegerField(required=False, allow_null=True)
 
 
+class AdminProductSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    product_no = serializers.CharField()
+    name = serializers.CharField()
+    type = serializers.CharField()
+    annual_rate = serializers.CharField()
+    term_months = serializers.IntegerField()
+    target_amount = serializers.IntegerField()
+    raised_amount = serializers.IntegerField()
+    status = serializers.CharField()
+
+
+class AdminProductListResponseSerializer(serializers.Serializer):
+    results = AdminProductSerializer(many=True)
+
+
+class AdminProductCreateResponseSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    product_no = serializers.CharField()
+    status = serializers.CharField()
+
+
+class IdStatusSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+
+
+class ProductStatusRequestSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=Product.Status.choices)
+
+
+class RepaySummarySerializer(serializers.Serializer):
+    date = serializers.CharField()
+    paid = serializers.IntegerField()
+    overdue = serializers.IntegerField()
+
+
+class ExpireSummarySerializer(serializers.Serializer):
+    expired_lots = serializers.IntegerField()
+
+
+class ReconcileSummarySerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+    diffs = serializers.ListField(child=serializers.DictField())
+    report_id = serializers.IntegerField()
+
+
+class TimeAdvanceRequestSerializer(serializers.Serializer):
+    date = serializers.DateField(required=False)
+
+
+class TimeAdvanceResponseSerializer(serializers.Serializer):
+    date = serializers.CharField()
+    repay = RepaySummarySerializer()
+    expire = ExpireSummarySerializer()
+    reconcile = ReconcileSummarySerializer()
+
+
+class AdminGradeRequestItemSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    user_id = serializers.IntegerField()
+    email = serializers.EmailField()
+    to_grade = serializers.CharField()
+    status = serializers.CharField()
+    created_at = serializers.DateTimeField()
+
+
+class AdminGradeRequestListSerializer(serializers.Serializer):
+    results = AdminGradeRequestItemSerializer(many=True)
+
+
+class GradeDecisionSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=["approve", "reject"])
+    reason = serializers.CharField(required=False, allow_blank=True)
+
+
+class DepositHoldItemSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    user_id = serializers.IntegerField()
+    email = serializers.EmailField()
+    amount = serializers.IntegerField()
+    sender_name = serializers.CharField()
+    held_reason = serializers.CharField(allow_blank=True)
+    created_at = serializers.DateTimeField()
+
+
+class DepositHoldListSerializer(serializers.Serializer):
+    results = DepositHoldItemSerializer(many=True)
+
+
+class AdminLoanApplicationItemSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    company = serializers.CharField(allow_blank=True)
+    amount = serializers.IntegerField()
+    term_months = serializers.IntegerField()
+    status = serializers.CharField()
+    created_at = serializers.DateTimeField()
+
+
+class AdminLoanApplicationListSerializer(serializers.Serializer):
+    results = AdminLoanApplicationItemSerializer(many=True)
+
+
+class LoanDecisionSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=["approve", "reject"])
+    name = serializers.CharField(required=False)
+    type = serializers.ChoiceField(
+        choices=Product.Type.choices, required=False
+    )
+    annual_rate = serializers.CharField(required=False)
+    repay_type = serializers.ChoiceField(
+        choices=Product.RepayType.choices, required=False
+    )
+    platform_fee_rate = serializers.CharField(required=False)
+    borrower_id = serializers.CharField(required=False)
+
+
+class LoanDecisionResponseSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.CharField()
+    product_id = serializers.IntegerField(allow_null=True)
+
+
+class SeedProductsRequestSerializer(serializers.Serializer):
+    count = serializers.IntegerField(required=False, default=10)
+    status = serializers.ChoiceField(
+        choices=Product.Status.choices, required=False
+    )
+    rate_min = serializers.FloatField(required=False)
+    rate_max = serializers.FloatField(required=False)
+    amount_min = serializers.IntegerField(required=False)
+    amount_max = serializers.IntegerField(required=False)
+    term_min = serializers.IntegerField(required=False)
+    term_max = serializers.IntegerField(required=False)
+    seed = serializers.IntegerField(required=False, allow_null=True)
+
+
+class SeedProductsResponseSerializer(serializers.Serializer):
+    created = serializers.IntegerField()
+    ids = serializers.ListField(child=serializers.IntegerField())
+
+
 class ProductListCreateView(APIView):
     permission_classes = (IsStaff,)
 
+    @extend_schema(responses=AdminProductListResponseSerializer)
     def get(self, request):
         qs = Product.objects.all().order_by("-id")
         return Response(
@@ -67,7 +215,10 @@ class ProductListCreateView(APIView):
             }
         )
 
-    @extend_schema(request=ProductUpsertSerializer)
+    @extend_schema(
+        request=ProductUpsertSerializer,
+        responses={201: AdminProductCreateResponseSerializer},
+    )
     def post(self, request):
         s = ProductUpsertSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -94,7 +245,9 @@ class ProductDetailAdminView(APIView):
             raise NotFound()
         return p
 
-    @extend_schema(request=ProductUpsertSerializer)
+    @extend_schema(
+        request=ProductUpsertSerializer, responses=IdStatusSerializer
+    )
     def patch(self, request, pk):
         p = self._get(pk)
         s = ProductUpsertSerializer(data=request.data)
@@ -110,6 +263,9 @@ class ProductDetailAdminView(APIView):
 class ProductStatusView(APIView):
     permission_classes = (IsStaff,)
 
+    @extend_schema(
+        request=ProductStatusRequestSerializer, responses=IdStatusSerializer
+    )
     def patch(self, request, pk):
         p = Product.objects.filter(pk=pk).first()
         if p is None:
@@ -124,6 +280,7 @@ class ProductStatusView(APIView):
 class ProductExecuteView(APIView):
     permission_classes = (IsStaff,)
 
+    @extend_schema(request=None, responses=IdStatusSerializer)
     def post(self, request, pk):
         p = Product.objects.filter(pk=pk).first()
         if p is None:
@@ -144,6 +301,11 @@ class BatchRepayView(APIView):
 
     permission_classes = (IsStaff,)
 
+    @extend_schema(
+        request=None,
+        parameters=[OpenApiParameter("date", str)],
+        responses=RepaySummarySerializer,
+    )
     def post(self, request):
         from jobs.tasks import repay_daily
 
@@ -154,6 +316,11 @@ class BatchRepayView(APIView):
 class BatchExpirePointsView(APIView):
     permission_classes = (IsStaff,)
 
+    @extend_schema(
+        request=None,
+        parameters=[OpenApiParameter("date", str)],
+        responses=ExpireSummarySerializer,
+    )
     def post(self, request):
         from jobs.tasks import expire_points
 
@@ -163,6 +330,11 @@ class BatchExpirePointsView(APIView):
 class BatchReconcileView(APIView):
     permission_classes = (IsStaff,)
 
+    @extend_schema(
+        request=None,
+        parameters=[OpenApiParameter("date", str)],
+        responses=ReconcileSummarySerializer,
+    )
     def post(self, request):
         from jobs.tasks import reconcile_ledger
 
@@ -177,6 +349,10 @@ class TimeAdvanceView(APIView):
 
     permission_classes = (IsStaff,)
 
+    @extend_schema(
+        request=TimeAdvanceRequestSerializer,
+        responses=TimeAdvanceResponseSerializer,
+    )
     def post(self, request):
         from jobs.tasks import expire_points, reconcile_ledger, repay_daily
 
@@ -192,6 +368,7 @@ class TimeAdvanceView(APIView):
 class GradeRequestListView(APIView):
     permission_classes = (IsStaff,)
 
+    @extend_schema(responses=AdminGradeRequestListSerializer)
     def get(self, request):
         qs = GradeRequest.objects.select_related("user").order_by("-id")
         if request.query_params.get("status"):
@@ -216,6 +393,9 @@ class GradeRequestListView(APIView):
 class GradeRequestDetailView(APIView):
     permission_classes = (IsStaff,)
 
+    @extend_schema(
+        request=GradeDecisionSerializer, responses=IdStatusSerializer
+    )
     def patch(self, request, pk):
         g = GradeRequest.objects.filter(pk=pk).first()
         if g is None:
@@ -242,6 +422,7 @@ class GradeRequestDetailView(APIView):
 class DepositHoldListView(APIView):
     permission_classes = (IsStaff,)
 
+    @extend_schema(responses=DepositHoldListSerializer)
     def get(self, request):
         qs = DepositIntent.objects.filter(
             status=DepositIntent.Status.HELD
@@ -267,6 +448,7 @@ class DepositHoldListView(APIView):
 class DepositHoldDetailView(APIView):
     permission_classes = (IsStaff,)
 
+    @extend_schema(request=None, responses=IdStatusSerializer)
     def patch(self, request, pk):
         intent = admin.match_held_deposit(pk, request.user)
         return Response({"id": intent.id, "status": intent.status})
@@ -275,6 +457,7 @@ class DepositHoldDetailView(APIView):
 class LoanApplicationListView(APIView):
     permission_classes = (IsStaff,)
 
+    @extend_schema(responses=AdminLoanApplicationListSerializer)
     def get(self, request):
         qs = LoanApplication.objects.all().order_by("-id")
         if request.query_params.get("status"):
@@ -302,6 +485,10 @@ class LoanApplicationDetailView(APIView):
 
     permission_classes = (IsStaff,)
 
+    @extend_schema(
+        request=LoanDecisionSerializer,
+        responses=LoanDecisionResponseSerializer,
+    )
     def patch(self, request, pk):
         app = LoanApplication.objects.filter(pk=pk).first()
         if app is None:
@@ -364,6 +551,10 @@ class SeedProductsView(APIView):
     ]
     TAGS = ["조기상환가능", "연장가능", "분할상환", "보증보험"]
 
+    @extend_schema(
+        request=SeedProductsRequestSerializer,
+        responses={201: SeedProductsResponseSerializer},
+    )
     def post(self, request):
         count = int(request.data.get("count", 10))
         status = request.data.get("status")  # 고정 상태(없으면 랜덤)
@@ -488,25 +679,51 @@ def _seed_investments(product, target_raised, rng):
 # ---- 콘텐츠 CRUD (F-ADM-05) ----
 
 
-def _crud_list_create(model, fields):
+def _free_form(name, fields):
+    """모델 필드를 자유형(JSON) 속성으로 노출하는 스키마용 시리얼라이저."""
+    return inline_serializer(
+        name=name,
+        fields={f: serializers.JSONField(required=False) for f in fields},
+    )
+
+
+def _crud_list_create(model, fields, name):
+    req = _free_form(f"Admin{name}Upsert", fields)
+    resp = inline_serializer(
+        name=f"Admin{name}ListResponse",
+        fields={"results": serializers.ListField(child=serializers.JSONField())},
+    )
+    created = inline_serializer(
+        name=f"Admin{name}Created",
+        fields={"id": serializers.IntegerField()},
+    )
+
     class V(APIView):
         permission_classes = (IsStaff,)
 
+        @extend_schema(responses=resp)
         def get(self, request):
             rows = model.objects.all().order_by("-id")
             return Response(
                 {"results": [{f: getattr(r, f) for f in fields + ["id"]} for r in rows]}
             )
 
+        @extend_schema(request=req, responses={201: created})
         def post(self, request):
             data = {f: request.data.get(f) for f in fields if f in request.data}
             obj = model.objects.create(**data)
             return Response({"id": obj.id}, status=201)
 
+    V.__name__ = f"Admin{name}ListCreateView"
     return V
 
 
-def _crud_detail(model, fields):
+def _crud_detail(model, fields, name):
+    req = _free_form(f"Admin{name}Patch", fields)
+    resp = inline_serializer(
+        name=f"Admin{name}Detail", fields={"id": serializers.IntegerField()}
+    )
+
     class V(APIView):
         permission_classes = (IsStaff,)
 
@@ -516,6 +733,7 @@ def _crud_detail(model, fields):
                 raise NotFound()
             return obj
 
+        @extend_schema(request=req, responses=resp)
         def patch(self, request, pk):
             obj = self._get(pk)
             for f in fields:
@@ -524,36 +742,52 @@ def _crud_detail(model, fields):
             obj.save()
             return Response({"id": obj.id})
 
+        @extend_schema(responses={204: None})
         def delete(self, request, pk):
             self._get(pk).delete()
             return Response(status=204)
 
+    V.__name__ = f"Admin{name}DetailView"
     return V
 
 
-AdminNoticeList = _crud_list_create(Notice, ["category", "title", "body", "attachments"])
-AdminNoticeDetail = _crud_detail(Notice, ["category", "title", "body", "attachments"])
-AdminFaqList = _crud_list_create(Faq, ["category", "question", "answer"])
-AdminFaqDetail = _crud_detail(Faq, ["category", "question", "answer"])
+AdminNoticeList = _crud_list_create(
+    Notice, ["category", "title", "body", "attachments"], "Notice"
+)
+AdminNoticeDetail = _crud_detail(
+    Notice, ["category", "title", "body", "attachments"], "Notice"
+)
+AdminFaqList = _crud_list_create(
+    Faq, ["category", "question", "answer"], "Faq"
+)
+AdminFaqDetail = _crud_detail(
+    Faq, ["category", "question", "answer"], "Faq"
+)
 AdminEventList = _crud_list_create(
     Event,
     ["title", "summary", "body", "status", "thumbnail_url", "reward_points",
      "start_at", "end_at"],
+    "Event",
 )
 AdminEventDetail = _crud_detail(
     Event,
     ["title", "summary", "body", "status", "thumbnail_url", "reward_points",
      "start_at", "end_at"],
+    "Event",
 )
 AdminDisclosureList = _crud_list_create(
-    Disclosure, ["year", "month", "kpi", "management", "operations", "internal"]
+    Disclosure,
+    ["year", "month", "kpi", "management", "operations", "internal"],
+    "Disclosure",
 )
 AdminDisclosureDetail = _crud_detail(
-    Disclosure, ["year", "month", "kpi", "management", "operations", "internal"]
+    Disclosure,
+    ["year", "month", "kpi", "management", "operations", "internal"],
+    "Disclosure",
 )
 AdminNewsList = _crud_list_create(
-    News, ["title", "source", "url", "thumbnail_url", "published_at"]
+    News, ["title", "source", "url", "thumbnail_url", "published_at"], "News"
 )
 AdminNewsDetail = _crud_detail(
-    News, ["title", "source", "url", "thumbnail_url", "published_at"]
+    News, ["title", "source", "url", "thumbnail_url", "published_at"], "News"
 )

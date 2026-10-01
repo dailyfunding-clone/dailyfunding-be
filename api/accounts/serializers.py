@@ -45,6 +45,42 @@ class AppCodeExchangeSerializer(serializers.Serializer):
     code = serializers.CharField()
 
 
+class SignupResponseSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    email = serializers.EmailField()
+    next_step = serializers.CharField()
+
+
+class LoginResponseSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    name = serializers.CharField(allow_blank=True)
+    grade = serializers.CharField()
+    pin_registered = serializers.BooleanField()
+
+
+class OkResponseSerializer(serializers.Serializer):
+    ok = serializers.BooleanField()
+
+
+class IdentityVerifyResponseSerializer(serializers.Serializer):
+    ci = serializers.CharField()
+    verified = serializers.BooleanField()
+
+
+class PinRegisterResponseSerializer(serializers.Serializer):
+    pin_registered = serializers.BooleanField()
+
+
+class ReauthResponseSerializer(serializers.Serializer):
+    reauth_token = serializers.CharField()
+    expires_in = serializers.IntegerField()
+
+
+class AppCodeIssueResponseSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    expires_in = serializers.IntegerField()
+
+
 class UserSerializer(serializers.ModelSerializer):
     pin_registered = serializers.BooleanField(read_only=True)
     identity_verified = serializers.BooleanField(read_only=True)

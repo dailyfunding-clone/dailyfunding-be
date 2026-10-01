@@ -35,3 +35,22 @@ class ProductDetailSerializer(ProductListSerializer):
             "remaining_amount",
             "recruit_open_at",
         )
+
+
+class SchedulePreviewRowSerializer(serializers.Serializer):
+    seq = serializers.IntegerField()
+    pay_date = serializers.DateField()
+    principal = serializers.IntegerField()
+    repay_principal = serializers.IntegerField()
+    interest_gross = serializers.IntegerField()
+    tax = serializers.IntegerField()
+    platform_fee = serializers.IntegerField()
+    interest_net = serializers.IntegerField()
+
+
+class SchedulePreviewSerializer(serializers.Serializer):
+    gross_rate = serializers.CharField()
+    net_rate = serializers.CharField()
+    gross_return = serializers.IntegerField()
+    net_return = serializers.IntegerField()
+    schedule = SchedulePreviewRowSerializer(many=True)

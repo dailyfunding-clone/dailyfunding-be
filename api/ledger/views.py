@@ -15,9 +15,18 @@ from api.ledger import services
 from api.ledger.models import DepositIntent, LedgerEntry, PointEntry
 from api.ledger.serializers import (
     AutoChargeSerializer,
+    DepositAccountSerializer,
+    DepositHistorySerializer,
+    DepositIntentResponseSerializer,
+    EnabledResponseSerializer,
+    LinkedAccountResponseSerializer,
     LinkedAccountSerializer,
     NotifyIntentSerializer,
+    PointBalanceSerializer,
+    PointConvertResponseSerializer,
     PointConvertSerializer,
+    PointHistorySerializer,
+    WithdrawResponseSerializer,
     WithdrawSerializer,
 )
 
@@ -25,6 +34,7 @@ from api.ledger.serializers import (
 class DepositAccountView(APIView):
     """GET /api/deposit/account — 가상계좌 + 잔액 (F-DEP-01)."""
 
+    @extend_schema(responses=DepositAccountSerializer)
     def get(self, request):
         va = getattr(request.user, "virtual_account", None)
         if va is None:
@@ -46,7 +56,10 @@ class DepositAccountView(APIView):
 class DepositNotifyIntentView(APIView):
     """POST /api/deposit/notify-intent — 입금 알리기 (F-DEP-02)."""
 
-    @extend_schema(request=NotifyIntentSerializer)
+    @extend_schema(
+        request=NotifyIntentSerializer,
+        responses={202: DepositIntentResponseSerializer},
+    )
     def post(self, request):
         s = NotifyIntentSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -66,7 +79,10 @@ class DepositNotifyIntentView(APIView):
 class WithdrawView(APIView):
     """POST /api/deposit/withdraw — 출금 요청 (F-DEP-03)."""
 
-    @extend_schema(request=WithdrawSerializer)
+    @extend_schema(
+        request=WithdrawSerializer,
+        responses={202: WithdrawResponseSerializer},
+    )
     def post(self, request):
         require_reauth(request)
         s = WithdrawSerializer(data=request.data)
@@ -91,6 +107,7 @@ class WithdrawView(APIView):
 class DepositHistoryView(APIView):
     """GET /api/deposit/history — 예치금 내역 (F-DEP-04, F-MY-04)."""
 
+    @extend_schema(responses=DepositHistorySerializer)
     def get(self, request):
         account = services.deposit_acc(request.user.id)
         view = request.query_params.get("view")
@@ -138,7 +155,10 @@ class DepositHistoryView(APIView):
 class LinkedAccountView(APIView):
     """PUT /api/deposit/linked-account — 연결계좌 등록 (F-DEP-05)."""
 
-    @extend_schema(request=LinkedAccountSerializer)
+    @extend_schema(
+        request=LinkedAccountSerializer,
+        responses=LinkedAccountResponseSerializer,
+    )
     def put(self, request):
         require_reauth(request)
         s = LinkedAccountSerializer(data=request.data)
@@ -159,7 +179,9 @@ class LinkedAccountView(APIView):
 class AutoChargeView(APIView):
     """PUT /api/deposit/auto-charge — 간편충전 ON/OFF (F-DEP-05)."""
 
-    @extend_schema(request=AutoChargeSerializer)
+    @extend_schema(
+        request=AutoChargeSerializer, responses=EnabledResponseSerializer
+    )
     def put(self, request):
         s = AutoChargeSerializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -174,6 +196,7 @@ class AutoChargeView(APIView):
 class PointsView(APIView):
     """GET /api/points (F-PNT-01)."""
 
+    @extend_schema(responses=PointBalanceSerializer)
     def get(self, request):
         return Response(
             {
@@ -186,6 +209,7 @@ class PointsView(APIView):
 class PointsHistoryView(APIView):
     """GET /api/points/history (F-PNT-02). CSV export 지원."""
 
+    @extend_schema(responses=PointHistorySerializer)
     def get(self, request):
         qs = PointEntry.objects.filter(user=request.user)
         kind = request.query_params.get("kind")
@@ -225,7 +249,10 @@ class PointsHistoryView(APIView):
 class PointsConvertView(APIView):
     """POST /api/points/convert — 포인트→예치금 전환 (F-PNT-01)."""
 
-    @extend_schema(request=PointConvertSerializer)
+    @extend_schema(
+        request=PointConvertSerializer,
+        responses=PointConvertResponseSerializer,
+    )
     def post(self, request):
         s = PointConvertSerializer(data=request.data)
         s.is_valid(raise_exception=True)

@@ -8,6 +8,15 @@
         "/api/admin/batch/expire-points": {
             "post": {
                 "operationId": "api_admin_batch_expire_points_create",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "date",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "tags": [
                     "api"
                 ],
@@ -18,7 +27,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExpireSummary"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -26,6 +42,15 @@
         "/api/admin/batch/reconcile": {
             "post": {
                 "operationId": "api_admin_batch_reconcile_create",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "date",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "tags": [
                     "api"
                 ],
@@ -36,7 +61,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReconcileSummary"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -45,6 +77,15 @@
             "post": {
                 "operationId": "api_admin_batch_repay_create",
                 "description": "POST /api/admin/batch/repay?date= — 상환 배치 수동 트리거 (F-ADM-03/04).",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "date",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "tags": [
                     "api"
                 ],
@@ -55,7 +96,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RepaySummary"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -73,7 +121,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DepositHoldList"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -101,7 +156,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IdStatus"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -119,7 +181,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminDisclosureListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -128,14 +197,40 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminDisclosureUpsert"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminDisclosureUpsert"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminDisclosureUpsert"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminDisclosureCreated"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -156,6 +251,25 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminDisclosurePatch"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminDisclosurePatch"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminDisclosurePatch"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
@@ -163,7 +277,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminDisclosureDetail"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -207,7 +328,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminEventListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -216,14 +344,40 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminEventUpsert"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminEventUpsert"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminEventUpsert"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminEventCreated"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -244,6 +398,25 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminEventPatch"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminEventPatch"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminEventPatch"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
@@ -251,7 +424,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminEventDetail"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -295,7 +475,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminFaqListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -304,14 +491,40 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminFaqUpsert"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminFaqUpsert"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminFaqUpsert"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminFaqCreated"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -332,6 +545,25 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminFaqPatch"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminFaqPatch"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminFaqPatch"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
@@ -339,7 +571,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminFaqDetail"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -383,7 +622,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminGradeRequestList"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -404,6 +650,25 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedGradeDecision"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedGradeDecision"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedGradeDecision"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
@@ -411,7 +676,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IdStatus"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -429,7 +701,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminLoanApplicationList"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -451,6 +730,25 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedLoanDecision"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedLoanDecision"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedLoanDecision"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
@@ -458,7 +756,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoanDecisionResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -476,7 +781,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminNewsListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -485,14 +797,40 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminNewsUpsert"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminNewsUpsert"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminNewsUpsert"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminNewsCreated"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -513,6 +851,25 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminNewsPatch"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminNewsPatch"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminNewsPatch"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
@@ -520,7 +877,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminNewsDetail"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -564,7 +928,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminNoticeListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -573,14 +944,40 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminNoticeUpsert"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminNoticeUpsert"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminNoticeUpsert"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminNoticeCreated"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -601,6 +998,25 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminNoticePatch"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminNoticePatch"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedAdminNoticePatch"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
@@ -608,7 +1024,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminNoticeDetail"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -652,7 +1075,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminProductListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -686,8 +1116,15 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminProductCreateResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -734,7 +1171,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IdStatus"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -762,7 +1206,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IdStatus"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -783,6 +1234,25 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedProductStatusRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedProductStatusRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedProductStatusRequest"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
@@ -790,7 +1260,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IdStatus"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -802,14 +1279,40 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SeedProductsRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SeedProductsRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SeedProductsRequest"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SeedProductsResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -821,6 +1324,25 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TimeAdvanceRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TimeAdvanceRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TimeAdvanceRequest"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {
                         "cookieAuth": []
@@ -828,7 +1350,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TimeAdvanceResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -847,7 +1376,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AppCodeIssueResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -886,7 +1422,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -926,7 +1469,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IdentityVerifyResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -965,7 +1515,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1004,7 +1561,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1022,7 +1586,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OkResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1060,7 +1631,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PinRegisterResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1098,7 +1676,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReauthResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1117,7 +1702,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1155,8 +1747,15 @@
                     {}
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SignupResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1194,8 +1793,15 @@
                     {}
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SignupResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1214,7 +1820,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CartListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -1250,8 +1863,15 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CartAddResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1298,7 +1918,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DepositAccount"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1337,7 +1964,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EnabledResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1356,7 +1990,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DepositHistory"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1395,7 +2036,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LinkedAccountResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1433,8 +2081,15 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DepositIntentResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1471,8 +2126,15 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WithdrawResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1510,8 +2172,15 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeviceResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1530,14 +2199,21 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DisclosureListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
         },
         "/api/events": {
             "get": {
-                "operationId": "api_events_retrieve",
+                "operationId": "api_events_list",
                 "tags": [
                     "api"
                 ],
@@ -1549,14 +2225,21 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EventListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
         },
         "/api/events/{id}": {
             "get": {
-                "operationId": "api_events_retrieve_2",
+                "operationId": "api_events_retrieve",
                 "parameters": [
                     {
                         "in": "path",
@@ -1578,7 +2261,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EventDetail"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1607,7 +2297,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EventEnterResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1626,7 +2323,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FaqListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1645,14 +2349,21 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FaqKeywords"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
         },
         "/api/investments": {
             "get": {
-                "operationId": "api_investments_retrieve",
+                "operationId": "api_investments_list",
                 "description": "GET /api/investments — 내 투자 내역 / POST — 투자 주문 (F-INV-04).",
                 "tags": [
                     "api"
@@ -1664,7 +2375,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InvestmentListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -1700,15 +2418,22 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InvestmentResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
         },
         "/api/investments/{id}": {
             "get": {
-                "operationId": "api_investments_retrieve_2",
+                "operationId": "api_investments_retrieve",
                 "description": "GET /api/investments/{id} — 건별 상세 (회차별 상환 현황).",
                 "parameters": [
                     {
@@ -1730,14 +2455,21 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InvestmentDetailResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
         },
         "/api/loans": {
             "get": {
-                "operationId": "api_loans_retrieve",
+                "operationId": "api_loans_list",
                 "description": "GET /api/loans?category= (F-LOAN-01).",
                 "tags": [
                     "api"
@@ -1750,14 +2482,21 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoanProductListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
         },
         "/api/loans/{id}": {
             "get": {
-                "operationId": "api_loans_retrieve_2",
+                "operationId": "api_loans_retrieve",
                 "parameters": [
                     {
                         "in": "path",
@@ -1779,7 +2518,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoanProductDetail"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1818,8 +2564,15 @@
                     {}
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoanApplicationResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1859,7 +2612,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LimitCheckResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1893,6 +2653,24 @@
             "get": {
                 "operationId": "api_me_calendar_retrieve",
                 "description": "GET /api/me/calendar?year=&month= (F-MY-02).",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "month",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "year",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "required": true
+                    }
+                ],
                 "tags": [
                     "api"
                 ],
@@ -1903,7 +2681,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CalendarResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1922,7 +2707,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DashboardResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1941,7 +2733,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/GradeResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1979,8 +2778,15 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/GradeRequestResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -1998,7 +2804,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/GradeHistoryResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2017,7 +2830,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InvestmentListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2035,8 +2855,15 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LimitAssessmentResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2055,14 +2882,21 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NewsListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
         },
         "/api/notices": {
             "get": {
-                "operationId": "api_notices_retrieve",
+                "operationId": "api_notices_list",
                 "tags": [
                     "api"
                 ],
@@ -2074,14 +2908,21 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NoticeListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
         },
         "/api/notices/{id}": {
             "get": {
-                "operationId": "api_notices_retrieve_2",
+                "operationId": "api_notices_retrieve",
                 "parameters": [
                     {
                         "in": "path",
@@ -2103,7 +2944,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NoticeDetail"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2121,7 +2969,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NotificationListResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2159,7 +3014,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NotifSettingResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2178,7 +3040,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PointBalance"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2217,7 +3086,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PointConvertResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2236,7 +3112,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PointHistory"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2422,7 +3305,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SchedulePreview"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2459,8 +3349,15 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "No response body"
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReservationResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2507,7 +3404,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReservationResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -2552,7 +3456,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReservationEligibleResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2571,7 +3482,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SuitabilityQuestionsResponse"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             },
@@ -2608,7 +3526,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SuitabilityResult"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2637,7 +3562,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Term"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2649,12 +3581,39 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BankWebhookPayload"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BankWebhookPayload"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BankWebhookPayload"
+                            }
+                        }
+                    },
+                    "required": true
+                },
                 "security": [
                     {}
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BankWebhookAck"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2666,12 +3625,39 @@
                 "tags": [
                     "api"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BankWebhookPayload"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BankWebhookPayload"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BankWebhookPayload"
+                            }
+                        }
+                    },
+                    "required": true
+                },
                 "security": [
                     {}
                 ],
                 "responses": {
                     "200": {
-                        "description": "No response body"
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BankWebhookAck"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -2679,6 +3665,408 @@
     },
     "components": {
         "schemas": {
+            "ActionEnum": {
+                "enum": [
+                    "approve",
+                    "reject"
+                ],
+                "type": "string",
+                "description": "* `approve` - approve\n* `reject` - reject"
+            },
+            "AdminDisclosureCreated": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id"
+                ]
+            },
+            "AdminDisclosureDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id"
+                ]
+            },
+            "AdminDisclosureListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {}
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "AdminDisclosureUpsert": {
+                "type": "object",
+                "properties": {
+                    "year": {},
+                    "month": {},
+                    "kpi": {},
+                    "management": {},
+                    "operations": {},
+                    "internal": {}
+                }
+            },
+            "AdminEventCreated": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id"
+                ]
+            },
+            "AdminEventDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id"
+                ]
+            },
+            "AdminEventListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {}
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "AdminEventUpsert": {
+                "type": "object",
+                "properties": {
+                    "title": {},
+                    "summary": {},
+                    "body": {},
+                    "status": {},
+                    "thumbnail_url": {},
+                    "reward_points": {},
+                    "start_at": {},
+                    "end_at": {}
+                }
+            },
+            "AdminFaqCreated": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id"
+                ]
+            },
+            "AdminFaqDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id"
+                ]
+            },
+            "AdminFaqListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {}
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "AdminFaqUpsert": {
+                "type": "object",
+                "properties": {
+                    "category": {},
+                    "question": {},
+                    "answer": {}
+                }
+            },
+            "AdminGradeRequestItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "to_grade": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "created_at",
+                    "email",
+                    "id",
+                    "status",
+                    "to_grade",
+                    "user_id"
+                ]
+            },
+            "AdminGradeRequestList": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AdminGradeRequestItem"
+                        }
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "AdminLoanApplicationItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "company": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "integer"
+                    },
+                    "term_months": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "company",
+                    "created_at",
+                    "id",
+                    "name",
+                    "status",
+                    "term_months"
+                ]
+            },
+            "AdminLoanApplicationList": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AdminLoanApplicationItem"
+                        }
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "AdminNewsCreated": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id"
+                ]
+            },
+            "AdminNewsDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id"
+                ]
+            },
+            "AdminNewsListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {}
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "AdminNewsUpsert": {
+                "type": "object",
+                "properties": {
+                    "title": {},
+                    "source": {},
+                    "url": {},
+                    "thumbnail_url": {},
+                    "published_at": {}
+                }
+            },
+            "AdminNoticeCreated": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id"
+                ]
+            },
+            "AdminNoticeDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id"
+                ]
+            },
+            "AdminNoticeListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {}
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "AdminNoticeUpsert": {
+                "type": "object",
+                "properties": {
+                    "category": {},
+                    "title": {},
+                    "body": {},
+                    "attachments": {}
+                }
+            },
+            "AdminProduct": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "product_no": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "annual_rate": {
+                        "type": "string"
+                    },
+                    "term_months": {
+                        "type": "integer"
+                    },
+                    "target_amount": {
+                        "type": "integer"
+                    },
+                    "raised_amount": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "annual_rate",
+                    "id",
+                    "name",
+                    "product_no",
+                    "raised_amount",
+                    "status",
+                    "target_amount",
+                    "term_months",
+                    "type"
+                ]
+            },
+            "AdminProductCreateResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "product_no": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "product_no",
+                    "status"
+                ]
+            },
+            "AdminProductListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AdminProduct"
+                        }
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
             "AgreementItem": {
                 "type": "object",
                 "properties": {
@@ -2705,6 +4093,21 @@
                     "code"
                 ]
             },
+            "AppCodeIssueResponse": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "expires_in": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "code",
+                    "expires_in"
+                ]
+            },
             "AutoCharge": {
                 "type": "object",
                 "properties": {
@@ -2716,6 +4119,100 @@
                     "enabled"
                 ]
             },
+            "BankWebhookAck": {
+                "type": "object",
+                "properties": {
+                    "received": {
+                        "type": "boolean"
+                    },
+                    "deduplicated": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "received"
+                ]
+            },
+            "BankWebhookPayload": {
+                "type": "object",
+                "properties": {
+                    "event_id": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "event_id",
+                    "type"
+                ]
+            },
+            "CalendarDay": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "principal": {
+                        "type": "integer"
+                    },
+                    "interest_net": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "date",
+                    "interest_net",
+                    "principal",
+                    "status"
+                ]
+            },
+            "CalendarMonthly": {
+                "type": "object",
+                "properties": {
+                    "principal_done": {
+                        "type": "integer"
+                    },
+                    "principal_scheduled": {
+                        "type": "integer"
+                    },
+                    "interest_done_net": {
+                        "type": "integer"
+                    },
+                    "interest_scheduled_net": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "interest_done_net",
+                    "interest_scheduled_net",
+                    "principal_done",
+                    "principal_scheduled"
+                ]
+            },
+            "CalendarResponse": {
+                "type": "object",
+                "properties": {
+                    "days": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CalendarDay"
+                        }
+                    },
+                    "monthly": {
+                        "$ref": "#/components/schemas/CalendarMonthly"
+                    }
+                },
+                "required": [
+                    "days",
+                    "monthly"
+                ]
+            },
             "CartAdd": {
                 "type": "object",
                 "properties": {
@@ -2725,6 +4222,238 @@
                 },
                 "required": [
                     "product_id"
+                ]
+            },
+            "CartAddResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id"
+                ]
+            },
+            "CartItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "product_id": {
+                        "type": "integer"
+                    },
+                    "product_no": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "annual_rate": {
+                        "type": "string"
+                    },
+                    "term_months": {
+                        "type": "integer"
+                    },
+                    "target_amount": {
+                        "type": "integer"
+                    },
+                    "remaining_amount": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "closed": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "annual_rate",
+                    "closed",
+                    "id",
+                    "name",
+                    "product_id",
+                    "product_no",
+                    "remaining_amount",
+                    "status",
+                    "target_amount",
+                    "term_months"
+                ]
+            },
+            "CartListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CartItem"
+                        }
+                    },
+                    "count": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "count",
+                    "results"
+                ]
+            },
+            "DashboardResponse": {
+                "type": "object",
+                "properties": {
+                    "profile": {
+                        "$ref": "#/components/schemas/_Profile"
+                    },
+                    "virtual_account": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/_VirtualAccount"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "deposit": {
+                        "type": "integer"
+                    },
+                    "points": {
+                        "type": "integer"
+                    },
+                    "limits": {
+                        "$ref": "#/components/schemas/_Limits"
+                    },
+                    "active": {
+                        "$ref": "#/components/schemas/_Active"
+                    },
+                    "past": {
+                        "$ref": "#/components/schemas/_Past"
+                    }
+                },
+                "required": [
+                    "active",
+                    "deposit",
+                    "limits",
+                    "past",
+                    "points",
+                    "profile",
+                    "virtual_account"
+                ]
+            },
+            "DepositAccount": {
+                "type": "object",
+                "properties": {
+                    "bank": {
+                        "type": "string"
+                    },
+                    "account_no": {
+                        "type": "string"
+                    },
+                    "holder": {
+                        "type": "string"
+                    },
+                    "deposit": {
+                        "type": "integer"
+                    },
+                    "held": {
+                        "type": "integer"
+                    },
+                    "withdrawable": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "account_no",
+                    "bank",
+                    "deposit",
+                    "held",
+                    "holder",
+                    "withdrawable"
+                ]
+            },
+            "DepositHistory": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LedgerEntry"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "next_cursor",
+                    "results"
+                ]
+            },
+            "DepositHoldItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "amount": {
+                        "type": "integer"
+                    },
+                    "sender_name": {
+                        "type": "string"
+                    },
+                    "held_reason": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "created_at",
+                    "email",
+                    "held_reason",
+                    "id",
+                    "sender_name",
+                    "user_id"
+                ]
+            },
+            "DepositHoldList": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DepositHoldItem"
+                        }
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "DepositIntentResponse": {
+                "type": "object",
+                "properties": {
+                    "intent_id": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "intent_id",
+                    "status"
                 ]
             },
             "Device": {
@@ -2743,6 +4472,286 @@
                     "platform"
                 ]
             },
+            "DeviceResponse": {
+                "type": "object",
+                "properties": {
+                    "registered": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "registered"
+                ]
+            },
+            "Disclosure": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "year": {
+                        "type": "integer"
+                    },
+                    "month": {
+                        "type": "integer"
+                    },
+                    "kpi": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    },
+                    "tabs": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    },
+                    "published_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "kpi",
+                    "month",
+                    "published_at",
+                    "tabs",
+                    "year"
+                ]
+            },
+            "DisclosureListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Disclosure"
+                        }
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "EnabledResponse": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "enabled"
+                ]
+            },
+            "EventDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "thumbnail_url": {
+                        "type": "string"
+                    },
+                    "reward_points": {
+                        "type": "integer"
+                    },
+                    "start_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "end_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "prev_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "next_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "ongoing": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OngoingEvent"
+                        }
+                    }
+                },
+                "required": [
+                    "body",
+                    "end_at",
+                    "id",
+                    "next_id",
+                    "ongoing",
+                    "prev_id",
+                    "reward_points",
+                    "start_at",
+                    "status",
+                    "summary",
+                    "thumbnail_url",
+                    "title"
+                ]
+            },
+            "EventEnterResponse": {
+                "type": "object",
+                "properties": {
+                    "entered": {
+                        "type": "boolean"
+                    },
+                    "reward_points": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "entered",
+                    "reward_points"
+                ]
+            },
+            "EventListItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "thumbnail_url": {
+                        "type": "string"
+                    },
+                    "start_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "end_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "end_at",
+                    "id",
+                    "start_at",
+                    "status",
+                    "summary",
+                    "thumbnail_url",
+                    "title"
+                ]
+            },
+            "EventListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EventListItem"
+                        }
+                    },
+                    "total": {
+                        "type": "integer"
+                    },
+                    "page": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "page",
+                    "results",
+                    "total"
+                ]
+            },
+            "ExpireSummary": {
+                "type": "object",
+                "properties": {
+                    "expired_lots": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "expired_lots"
+                ]
+            },
+            "FaqItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "question": {
+                        "type": "string"
+                    },
+                    "answer": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "answer",
+                    "category",
+                    "id",
+                    "question"
+                ]
+            },
+            "FaqKeywords": {
+                "type": "object",
+                "properties": {
+                    "keywords": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "keywords"
+                ]
+            },
+            "FaqListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FaqItem"
+                        }
+                    },
+                    "total": {
+                        "type": "integer"
+                    },
+                    "page": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "page",
+                    "results",
+                    "total"
+                ]
+            },
             "GradeEnum": {
                 "enum": [
                     "general",
@@ -2751,6 +4760,78 @@
                 ],
                 "type": "string",
                 "description": "* `general` - 일반투자자\n* `income_eligible` - 소득적격투자자\n* `professional` - 전문투자자"
+            },
+            "GradeHistoryItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "to_grade": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "decided_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "created_at",
+                    "decided_at",
+                    "id",
+                    "status",
+                    "to_grade"
+                ]
+            },
+            "GradeHistoryResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/GradeHistoryItem"
+                        }
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "GradeLimits": {
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "real_estate": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "same_borrower": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "per_product_pct": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "per_product_pct",
+                    "real_estate",
+                    "same_borrower",
+                    "total"
+                ]
             },
             "GradeRequest": {
                 "type": "object",
@@ -2761,6 +4842,70 @@
                 },
                 "required": [
                     "to_grade"
+                ]
+            },
+            "GradeRequestResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "status"
+                ]
+            },
+            "GradeResponse": {
+                "type": "object",
+                "properties": {
+                    "grade": {
+                        "type": "string"
+                    },
+                    "limits": {
+                        "$ref": "#/components/schemas/GradeLimits"
+                    },
+                    "used": {
+                        "$ref": "#/components/schemas/GradeUsed"
+                    }
+                },
+                "required": [
+                    "grade",
+                    "limits",
+                    "used"
+                ]
+            },
+            "GradeUsed": {
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "type": "integer"
+                    },
+                    "real_estate": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "real_estate",
+                    "total"
+                ]
+            },
+            "IdStatus": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "status"
                 ]
             },
             "IdentityVerify": {
@@ -2786,6 +4931,21 @@
                     "phone"
                 ]
             },
+            "IdentityVerifyResponse": {
+                "type": "object",
+                "properties": {
+                    "ci": {
+                        "type": "string"
+                    },
+                    "verified": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "ci",
+                    "verified"
+                ]
+            },
             "InvestOrder": {
                 "type": "object",
                 "properties": {
@@ -2808,6 +4968,241 @@
                 "required": [
                     "amount",
                     "product_id"
+                ]
+            },
+            "InvestmentDetailProduct": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "product_no": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "annual_rate": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "annual_rate",
+                    "id",
+                    "name",
+                    "product_no",
+                    "status",
+                    "type"
+                ]
+            },
+            "InvestmentDetailResponse": {
+                "type": "object",
+                "properties": {
+                    "investment_id": {
+                        "type": "integer"
+                    },
+                    "amount": {
+                        "type": "integer"
+                    },
+                    "points_used": {
+                        "type": "integer"
+                    },
+                    "expected_net_return": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "schedule": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ScheduleRow"
+                        }
+                    },
+                    "product": {
+                        "$ref": "#/components/schemas/InvestmentDetailProduct"
+                    },
+                    "paid_net": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "expected_net_return",
+                    "investment_id",
+                    "paid_net",
+                    "points_used",
+                    "product",
+                    "schedule",
+                    "status"
+                ]
+            },
+            "InvestmentListItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "product_id": {
+                        "type": "integer"
+                    },
+                    "product_no": {
+                        "type": "string"
+                    },
+                    "product_name": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "integer"
+                    },
+                    "points_used": {
+                        "type": "integer"
+                    },
+                    "expected_net_return": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "created_at",
+                    "expected_net_return",
+                    "id",
+                    "points_used",
+                    "product_id",
+                    "product_name",
+                    "product_no",
+                    "status",
+                    "type"
+                ]
+            },
+            "InvestmentListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/InvestmentListItem"
+                        }
+                    },
+                    "total": {
+                        "type": "integer"
+                    },
+                    "page": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "page",
+                    "results",
+                    "total"
+                ]
+            },
+            "InvestmentResponse": {
+                "type": "object",
+                "properties": {
+                    "investment_id": {
+                        "type": "integer"
+                    },
+                    "amount": {
+                        "type": "integer"
+                    },
+                    "points_used": {
+                        "type": "integer"
+                    },
+                    "expected_net_return": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "schedule": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ScheduleRow"
+                        }
+                    }
+                },
+                "required": [
+                    "amount",
+                    "expected_net_return",
+                    "investment_id",
+                    "points_used",
+                    "schedule",
+                    "status"
+                ]
+            },
+            "LedgerEntry": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "integer"
+                    },
+                    "ref_type": {
+                        "type": "string"
+                    },
+                    "ref_id": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "created_at",
+                    "id",
+                    "kind",
+                    "ref_id",
+                    "ref_type"
+                ]
+            },
+            "LimitAssessmentResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "eligible_grades": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "simulation": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "eligible_grades",
+                    "id",
+                    "simulation",
+                    "status"
                 ]
             },
             "LimitCheck": {
@@ -2837,6 +5232,24 @@
                     "type"
                 ]
             },
+            "LimitCheckResponse": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer"
+                    },
+                    "rate_range": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "limit",
+                    "rate_range"
+                ]
+            },
             "LinkedAccount": {
                 "type": "object",
                 "properties": {
@@ -2857,6 +5270,32 @@
                     "account_no",
                     "bank_name",
                     "holder"
+                ]
+            },
+            "LinkedAccountResponse": {
+                "type": "object",
+                "properties": {
+                    "bank_name": {
+                        "type": "string",
+                        "maxLength": 20
+                    },
+                    "account_no": {
+                        "type": "string",
+                        "maxLength": 32
+                    },
+                    "holder": {
+                        "type": "string",
+                        "maxLength": 50
+                    },
+                    "linked": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "account_no",
+                    "bank_name",
+                    "holder",
+                    "linked"
                 ]
             },
             "LoanApplication": {
@@ -2915,6 +5354,171 @@
                     "term_months"
                 ]
             },
+            "LoanApplicationResponse": {
+                "type": "object",
+                "properties": {
+                    "application_id": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "application_id",
+                    "status"
+                ]
+            },
+            "LoanDecisionResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "product_id": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "id",
+                    "product_id",
+                    "status"
+                ]
+            },
+            "LoanProduct": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "target": {
+                        "type": "string"
+                    },
+                    "max_limit": {
+                        "type": "integer"
+                    },
+                    "rate_range": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "term_desc": {
+                        "type": "string"
+                    },
+                    "repay_method": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "category",
+                    "id",
+                    "max_limit",
+                    "name",
+                    "rate_range",
+                    "repay_method",
+                    "summary",
+                    "target",
+                    "term_desc"
+                ]
+            },
+            "LoanProductDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "target": {
+                        "type": "string"
+                    },
+                    "max_limit": {
+                        "type": "integer"
+                    },
+                    "rate_range": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "term_desc": {
+                        "type": "string"
+                    },
+                    "repay_method": {
+                        "type": "string"
+                    },
+                    "features": {
+                        "type": "array",
+                        "items": {}
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {}
+                    },
+                    "info": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    },
+                    "faqs": {
+                        "type": "array",
+                        "items": {}
+                    },
+                    "notices": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "category",
+                    "faqs",
+                    "features",
+                    "id",
+                    "info",
+                    "max_limit",
+                    "name",
+                    "notices",
+                    "rate_range",
+                    "repay_method",
+                    "steps",
+                    "summary",
+                    "target",
+                    "term_desc"
+                ]
+            },
+            "LoanProductListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LoanProduct"
+                        }
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
             "Login": {
                 "type": "object",
                 "properties": {
@@ -2931,6 +5535,161 @@
                     "password"
                 ]
             },
+            "LoginResponse": {
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "grade": {
+                        "type": "string"
+                    },
+                    "pin_registered": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "grade",
+                    "name",
+                    "pin_registered",
+                    "user_id"
+                ]
+            },
+            "NewsItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "url": {
+                        "type": "string"
+                    },
+                    "thumbnail_url": {
+                        "type": "string"
+                    },
+                    "published_at": {
+                        "type": "string",
+                        "format": "date"
+                    }
+                },
+                "required": [
+                    "id",
+                    "published_at",
+                    "source",
+                    "thumbnail_url",
+                    "title",
+                    "url"
+                ]
+            },
+            "NewsListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/NewsItem"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "next_cursor",
+                    "results"
+                ]
+            },
+            "NoticeDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "attachments": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "attachments",
+                    "body",
+                    "category",
+                    "created_at",
+                    "id",
+                    "title"
+                ]
+            },
+            "NoticeListItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "category",
+                    "created_at",
+                    "id",
+                    "title"
+                ]
+            },
+            "NoticeListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/NoticeListItem"
+                        }
+                    },
+                    "total": {
+                        "type": "integer"
+                    },
+                    "page": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "page",
+                    "results",
+                    "total"
+                ]
+            },
             "NotifSetting": {
                 "type": "object",
                 "properties": {
@@ -2944,6 +5703,67 @@
                         "type": "boolean"
                     }
                 }
+            },
+            "NotifSettingResponse": {
+                "type": "object",
+                "properties": {
+                    "new_product": {
+                        "type": "boolean"
+                    },
+                    "recruit_closed": {
+                        "type": "boolean"
+                    },
+                    "repayment": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "new_product",
+                    "recruit_closed",
+                    "repayment"
+                ]
+            },
+            "NotificationItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "body",
+                    "created_at",
+                    "id",
+                    "kind",
+                    "title"
+                ]
+            },
+            "NotificationListResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/NotificationItem"
+                        }
+                    }
+                },
+                "required": [
+                    "results"
+                ]
             },
             "NotifyIntent": {
                 "type": "object",
@@ -2960,6 +5780,36 @@
                 "required": [
                     "amount",
                     "sender_name"
+                ]
+            },
+            "OkResponse": {
+                "type": "object",
+                "properties": {
+                    "ok": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "ok"
+                ]
+            },
+            "OngoingEvent": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "thumbnail_url": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "thumbnail_url",
+                    "title"
                 ]
             },
             "PaginatedProductListList": {
@@ -2990,6 +5840,102 @@
                         "items": {
                             "$ref": "#/components/schemas/ProductList"
                         }
+                    }
+                }
+            },
+            "PatchedAdminDisclosurePatch": {
+                "type": "object",
+                "properties": {
+                    "year": {},
+                    "month": {},
+                    "kpi": {},
+                    "management": {},
+                    "operations": {},
+                    "internal": {}
+                }
+            },
+            "PatchedAdminEventPatch": {
+                "type": "object",
+                "properties": {
+                    "title": {},
+                    "summary": {},
+                    "body": {},
+                    "status": {},
+                    "thumbnail_url": {},
+                    "reward_points": {},
+                    "start_at": {},
+                    "end_at": {}
+                }
+            },
+            "PatchedAdminFaqPatch": {
+                "type": "object",
+                "properties": {
+                    "category": {},
+                    "question": {},
+                    "answer": {}
+                }
+            },
+            "PatchedAdminNewsPatch": {
+                "type": "object",
+                "properties": {
+                    "title": {},
+                    "source": {},
+                    "url": {},
+                    "thumbnail_url": {},
+                    "published_at": {}
+                }
+            },
+            "PatchedAdminNoticePatch": {
+                "type": "object",
+                "properties": {
+                    "category": {},
+                    "title": {},
+                    "body": {},
+                    "attachments": {}
+                }
+            },
+            "PatchedGradeDecision": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "$ref": "#/components/schemas/ActionEnum"
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PatchedLoanDecision": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "$ref": "#/components/schemas/ActionEnum"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/TypeEnum"
+                    },
+                    "annual_rate": {
+                        "type": "string"
+                    },
+                    "repay_type": {
+                        "$ref": "#/components/schemas/RepayTypeEnum"
+                    },
+                    "platform_fee_rate": {
+                        "type": "string"
+                    },
+                    "borrower_id": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PatchedProductStatusRequest": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "$ref": "#/components/schemas/StatusEnum"
                     }
                 }
             },
@@ -3093,6 +6039,17 @@
                     "pin"
                 ]
             },
+            "PinRegisterResponse": {
+                "type": "object",
+                "properties": {
+                    "pin_registered": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "pin_registered"
+                ]
+            },
             "PlatformEnum": {
                 "enum": [
                     "ios",
@@ -3101,6 +6058,21 @@
                 ],
                 "type": "string",
                 "description": "* `ios` - ios\n* `android` - android\n* `web` - web"
+            },
+            "PointBalance": {
+                "type": "object",
+                "properties": {
+                    "balance": {
+                        "type": "integer"
+                    },
+                    "expiring_this_month": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "balance",
+                    "expiring_this_month"
+                ]
             },
             "PointConvert": {
                 "type": "object",
@@ -3112,6 +6084,67 @@
                 },
                 "required": [
                     "amount"
+                ]
+            },
+            "PointConvertResponse": {
+                "type": "object",
+                "properties": {
+                    "converted": {
+                        "type": "integer"
+                    },
+                    "points": {
+                        "type": "integer"
+                    },
+                    "deposit": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "converted",
+                    "deposit",
+                    "points"
+                ]
+            },
+            "PointEntry": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "integer"
+                    },
+                    "memo": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "created_at",
+                    "id",
+                    "kind",
+                    "memo"
+                ]
+            },
+            "PointHistory": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PointEntry"
+                        }
+                    }
+                },
+                "required": [
+                    "results"
                 ]
             },
             "ProductDetail": {
@@ -3343,6 +6376,63 @@
                     "password"
                 ]
             },
+            "ReauthResponse": {
+                "type": "object",
+                "properties": {
+                    "reauth_token": {
+                        "type": "string"
+                    },
+                    "expires_in": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "expires_in",
+                    "reauth_token"
+                ]
+            },
+            "ReconcileSummary": {
+                "type": "object",
+                "properties": {
+                    "ok": {
+                        "type": "boolean"
+                    },
+                    "diffs": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {}
+                        }
+                    },
+                    "report_id": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "diffs",
+                    "ok",
+                    "report_id"
+                ]
+            },
+            "RepaySummary": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string"
+                    },
+                    "paid": {
+                        "type": "integer"
+                    },
+                    "overdue": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "date",
+                    "overdue",
+                    "paid"
+                ]
+            },
             "RepayTypeEnum": {
                 "enum": [
                     "equal_installment",
@@ -3368,6 +6458,71 @@
                     "investment_id"
                 ]
             },
+            "ReservationEligibleItem": {
+                "type": "object",
+                "properties": {
+                    "investment_id": {
+                        "type": "integer"
+                    },
+                    "product_id": {
+                        "type": "integer"
+                    },
+                    "product_name": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "integer"
+                    },
+                    "maturity_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "refinance_open": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "investment_id",
+                    "maturity_date",
+                    "product_id",
+                    "product_name",
+                    "refinance_open"
+                ]
+            },
+            "ReservationEligibleResponse": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReservationEligibleItem"
+                        }
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "ReservationResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "id",
+                    "status"
+                ]
+            },
             "RoleEnum": {
                 "enum": [
                     "investor",
@@ -3375,6 +6530,170 @@
                 ],
                 "type": "string",
                 "description": "* `investor` - 투자자\n* `borrower` - 대출자"
+            },
+            "SchedulePreview": {
+                "type": "object",
+                "properties": {
+                    "gross_rate": {
+                        "type": "string"
+                    },
+                    "net_rate": {
+                        "type": "string"
+                    },
+                    "gross_return": {
+                        "type": "integer"
+                    },
+                    "net_return": {
+                        "type": "integer"
+                    },
+                    "schedule": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SchedulePreviewRow"
+                        }
+                    }
+                },
+                "required": [
+                    "gross_rate",
+                    "gross_return",
+                    "net_rate",
+                    "net_return",
+                    "schedule"
+                ]
+            },
+            "SchedulePreviewRow": {
+                "type": "object",
+                "properties": {
+                    "seq": {
+                        "type": "integer"
+                    },
+                    "pay_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "principal": {
+                        "type": "integer"
+                    },
+                    "repay_principal": {
+                        "type": "integer"
+                    },
+                    "interest_gross": {
+                        "type": "integer"
+                    },
+                    "tax": {
+                        "type": "integer"
+                    },
+                    "platform_fee": {
+                        "type": "integer"
+                    },
+                    "interest_net": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "interest_gross",
+                    "interest_net",
+                    "pay_date",
+                    "platform_fee",
+                    "principal",
+                    "repay_principal",
+                    "seq",
+                    "tax"
+                ]
+            },
+            "ScheduleRow": {
+                "type": "object",
+                "properties": {
+                    "seq": {
+                        "type": "integer"
+                    },
+                    "pay_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "principal": {
+                        "type": "integer"
+                    },
+                    "repay_principal": {
+                        "type": "integer"
+                    },
+                    "interest_gross": {
+                        "type": "integer"
+                    },
+                    "tax": {
+                        "type": "integer"
+                    },
+                    "platform_fee": {
+                        "type": "integer"
+                    },
+                    "interest_net": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "interest_gross",
+                    "interest_net",
+                    "pay_date",
+                    "platform_fee",
+                    "principal",
+                    "repay_principal",
+                    "seq",
+                    "tax"
+                ]
+            },
+            "SeedProductsRequest": {
+                "type": "object",
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "default": 10
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/StatusEnum"
+                    },
+                    "rate_min": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "rate_max": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "amount_min": {
+                        "type": "integer"
+                    },
+                    "amount_max": {
+                        "type": "integer"
+                    },
+                    "term_min": {
+                        "type": "integer"
+                    },
+                    "term_max": {
+                        "type": "integer"
+                    },
+                    "seed": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                }
+            },
+            "SeedProductsResponse": {
+                "type": "object",
+                "properties": {
+                    "created": {
+                        "type": "integer"
+                    },
+                    "ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "required": [
+                    "created",
+                    "ids"
+                ]
             },
             "Signup": {
                 "type": "object",
@@ -3415,6 +6734,26 @@
                     "password"
                 ]
             },
+            "SignupResponse": {
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "integer"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "next_step": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email",
+                    "next_step",
+                    "user_id"
+                ]
+            },
             "StatusEnum": {
                 "enum": [
                     "draft",
@@ -3445,6 +6784,65 @@
                     "seq"
                 ]
             },
+            "SuitabilityQuestion": {
+                "type": "object",
+                "properties": {
+                    "seq": {
+                        "type": "integer"
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "answer_options": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "answer_options",
+                    "seq",
+                    "text"
+                ]
+            },
+            "SuitabilityQuestionsResponse": {
+                "type": "object",
+                "properties": {
+                    "questions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SuitabilityQuestion"
+                        }
+                    },
+                    "valid_until": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "questions",
+                    "valid_until"
+                ]
+            },
+            "SuitabilityResult": {
+                "type": "object",
+                "properties": {
+                    "passed": {
+                        "type": "boolean"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "expires_at",
+                    "passed"
+                ]
+            },
             "SuitabilitySubmit": {
                 "type": "object",
                 "properties": {
@@ -3457,6 +6855,62 @@
                 },
                 "required": [
                     "answers"
+                ]
+            },
+            "Term": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "body",
+                    "key",
+                    "title",
+                    "updated_at"
+                ]
+            },
+            "TimeAdvanceRequest": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "format": "date"
+                    }
+                }
+            },
+            "TimeAdvanceResponse": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string"
+                    },
+                    "repay": {
+                        "$ref": "#/components/schemas/RepaySummary"
+                    },
+                    "expire": {
+                        "$ref": "#/components/schemas/ExpireSummary"
+                    },
+                    "reconcile": {
+                        "$ref": "#/components/schemas/ReconcileSummary"
+                    }
+                },
+                "required": [
+                    "date",
+                    "expire",
+                    "reconcile",
+                    "repay"
                 ]
             },
             "ToGradeEnum": {
@@ -3527,6 +6981,123 @@
                         "default": false
                     }
                 }
+            },
+            "WithdrawResponse": {
+                "type": "object",
+                "properties": {
+                    "withdrawal_id": {
+                        "type": "integer"
+                    },
+                    "fee": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "fee",
+                    "status",
+                    "withdrawal_id"
+                ]
+            },
+            "_Active": {
+                "type": "object",
+                "properties": {
+                    "invested": {
+                        "type": "integer"
+                    },
+                    "principal_remaining": {
+                        "type": "integer"
+                    },
+                    "interest_received_net": {
+                        "type": "integer"
+                    },
+                    "interest_expected_net": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "interest_expected_net",
+                    "interest_received_net",
+                    "invested",
+                    "principal_remaining"
+                ]
+            },
+            "_Limits": {
+                "type": "object",
+                "properties": {
+                    "total_remaining": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "mortgage_remaining": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "mortgage_remaining",
+                    "total_remaining"
+                ]
+            },
+            "_Past": {
+                "type": "object",
+                "properties": {
+                    "count": {
+                        "type": "integer"
+                    },
+                    "interest_received_net": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "count",
+                    "interest_received_net"
+                ]
+            },
+            "_Profile": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "grade": {
+                        "type": "string"
+                    },
+                    "identity_verified": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "email",
+                    "grade",
+                    "identity_verified",
+                    "name"
+                ]
+            },
+            "_VirtualAccount": {
+                "type": "object",
+                "properties": {
+                    "bank": {
+                        "type": "string"
+                    },
+                    "account_no": {
+                        "type": "string"
+                    },
+                    "holder": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "account_no",
+                    "bank",
+                    "holder"
+                ]
             }
         },
         "securitySchemes": {
