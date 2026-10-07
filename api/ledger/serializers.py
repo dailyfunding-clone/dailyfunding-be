@@ -64,8 +64,12 @@ class DepositHistorySerializer(serializers.Serializer):
     next_cursor = serializers.CharField(allow_null=True)
 
 
-class LinkedAccountResponseSerializer(LinkedAccountSerializer):
+class LinkedAccountResponseSerializer(serializers.Serializer):
     linked = serializers.BooleanField()
+    bank_name = serializers.CharField(required=False)
+    account_no = serializers.CharField(required=False)
+    holder = serializers.CharField(required=False)
+    auto_charge = serializers.BooleanField(required=False)
 
 
 class EnabledResponseSerializer(serializers.Serializer):
