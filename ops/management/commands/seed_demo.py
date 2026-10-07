@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from api.accounts.models import User
 from api.accounts.services import create_user_account, issue_virtual_account
-from api.contents.models import Event, Faq, News, Notice, Term
+from api.contents.models import Disclosure, Event, Faq, News, Notice, Term
 from api.loans.models import LoanProduct
 from api.products.models import Product
 
@@ -119,4 +119,48 @@ class Command(BaseCommand):
                 source="데일리뉴스",
                 url="https://example.com/news/1",
                 published_at=timezone.now().date(),
+            )
+        if not Disclosure.objects.exists():
+            Disclosure.objects.create(
+                year=timezone.now().year,
+                month=timezone.now().month,
+                kpi={
+                    "average_rate": "9.42",
+                    "total_loan": 128_400_000_000,
+                    "loan_balance": 34_210_000_000,
+                    "overdue_rate": "3.21",
+                    "loss_rate": "0.84",
+                    "reinvest_rate": "61.3",
+                },
+                management={
+                    "회사정보": {
+                        "상호": "데일리펀딩 주식회사 (시뮬레이션)",
+                        "대표이사": "홍길동",
+                        "온투업 등록번호": "2022-56",
+                        "설립일": "2017-04-10",
+                    },
+                    "재무현황": [
+                        {"구분": "자산총계", "금액": 12_300_000_000},
+                        {"구분": "부채총계", "금액": 4_100_000_000},
+                        {"구분": "자기자본", "금액": 8_200_000_000},
+                    ],
+                },
+                operations={
+                    "취급현황": [
+                        {"구분": "누적 대출액", "금액": 128_400_000_000},
+                        {"구분": "대출 잔액", "금액": 34_210_000_000},
+                        {"구분": "평균 수익률", "금액": "9.42%"},
+                    ],
+                    "손실률 매트릭스": [
+                        {"유형": "부동산", "연체율": "2.8%", "손실률": "0.6%"},
+                        {"유형": "SCF", "연체율": "1.2%", "손실률": "0.1%"},
+                        {"유형": "개인신용", "연체율": "5.4%", "손실률": "1.9%"},
+                    ],
+                },
+                internal={
+                    "내부통제": {
+                        "여신심사": "차주별 한도 심사 규정 운영 (시뮬레이션)",
+                        "리스크관리": "월별 포트폴리오 리뷰 (시뮬레이션)",
+                    }
+                },
             )
