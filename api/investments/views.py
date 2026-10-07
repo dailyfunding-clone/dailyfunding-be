@@ -260,6 +260,27 @@ class ReservationEligibleView(APIView):
 
 
 class ReservationListCreateView(APIView):
+    @extend_schema(responses=ReservationResponseSerializer(many=True))
+    def get(self, request):
+        qs = (
+            Reservation.objects.filter(investment__user=request.user)
+            .select_related("investment__product")
+            .order_by("-created_at")
+        )
+        return Response(
+            [
+                {
+                    "id": r.id,
+                    "status": r.status,
+                    "amount": r.amount,
+                    "investment_id": r.investment_id,
+                    "product_name": r.investment.product.name,
+                    "created_at": r.created_at,
+                }
+                for r in qs
+            ]
+        )
+
     @extend_schema(
         request=ReservationCreateSerializer,
         responses={201: ReservationResponseSerializer},

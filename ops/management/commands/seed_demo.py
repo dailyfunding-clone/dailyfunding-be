@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from api.accounts.models import User
 from api.accounts.services import create_user_account, issue_virtual_account
-from api.contents.models import Event, Faq, News, Notice, Term
+from api.contents.models import Disclosure, Event, Faq, News, Notice, Term
 from api.loans.models import LoanProduct
 from api.products.models import Product
 
@@ -28,6 +28,14 @@ TERMS = [
     ("service", "서비스 이용약관"),
     ("privacy", "개인정보 처리방침"),
     ("credit_info", "신용정보 활용체제"),
+]
+
+FAQS = [
+    ("투자", "예치금은 어떻게 충전하나요?", "가상계좌로 입금하면 자동 반영됩니다. (시뮬레이션)"),
+    ("투자", "투자한도는 어떻게 정해지나요?", "소득적격 투자자 여부와 적합성 테스트 결과에 따라 투자한도가 달라집니다. (시뮬레이션)"),
+    ("투자", "상환은 언제 되나요?", "상품의 상환일에 원금과 이자가 예치금 계좌로 입금됩니다. (시뮬레이션)"),
+    ("계정", "출금수수료가 있나요?", "예치금 출금 시 수수료는 없습니다. (시뮬레이션)"),
+    ("투자", "적합성테스트는 왜 필요한가요?", "투자자 보호를 위해 투자 전 적합성 테스트를 통과해야 합니다. (시뮬레이션)"),
 ]
 
 
@@ -79,11 +87,10 @@ class Command(BaseCommand):
                 category="important", title="서비스 오픈 안내", body="데일리펀딩 클론 데모"
             )
         if not Faq.objects.exists():
-            Faq.objects.create(
-                category="투자",
-                question="예치금은 어떻게 충전하나요?",
-                answer="가상계좌로 입금하면 자동 반영됩니다. (시뮬레이션)",
-            )
+            for category, question, answer in FAQS:
+                Faq.objects.create(
+                    category=category, question=question, answer=answer
+                )
         if not LoanProduct.objects.exists():
             LoanProduct.objects.create(
                 category="personal",
@@ -119,4 +126,48 @@ class Command(BaseCommand):
                 source="데일리뉴스",
                 url="https://example.com/news/1",
                 published_at=timezone.now().date(),
+            )
+        if not Disclosure.objects.exists():
+            Disclosure.objects.create(
+                year=timezone.now().year,
+                month=timezone.now().month,
+                kpi={
+                    "average_rate": "9.42",
+                    "total_loan": 128_400_000_000,
+                    "loan_balance": 34_210_000_000,
+                    "overdue_rate": "3.21",
+                    "loss_rate": "0.84",
+                    "reinvest_rate": "61.3",
+                },
+                management={
+                    "회사정보": {
+                        "상호": "데일리펀딩 주식회사 (시뮬레이션)",
+                        "대표이사": "홍길동",
+                        "온투업 등록번호": "2022-56",
+                        "설립일": "2017-04-10",
+                    },
+                    "재무현황": [
+                        {"구분": "자산총계", "금액": 12_300_000_000},
+                        {"구분": "부채총계", "금액": 4_100_000_000},
+                        {"구분": "자기자본", "금액": 8_200_000_000},
+                    ],
+                },
+                operations={
+                    "취급현황": [
+                        {"구분": "누적 대출액", "금액": 128_400_000_000},
+                        {"구분": "대출 잔액", "금액": 34_210_000_000},
+                        {"구분": "평균 수익률", "금액": "9.42%"},
+                    ],
+                    "손실률 매트릭스": [
+                        {"유형": "부동산", "연체율": "2.8%", "손실률": "0.6%"},
+                        {"유형": "SCF", "연체율": "1.2%", "손실률": "0.1%"},
+                        {"유형": "개인신용", "연체율": "5.4%", "손실률": "1.9%"},
+                    ],
+                },
+                internal={
+                    "내부통제": {
+                        "여신심사": "차주별 한도 심사 규정 운영 (시뮬레이션)",
+                        "리스크관리": "월별 포트폴리오 리뷰 (시뮬레이션)",
+                    }
+                },
             )
