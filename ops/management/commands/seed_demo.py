@@ -30,6 +30,14 @@ TERMS = [
     ("credit_info", "신용정보 활용체제"),
 ]
 
+FAQS = [
+    ("투자", "예치금은 어떻게 충전하나요?", "가상계좌로 입금하면 자동 반영됩니다. (시뮬레이션)"),
+    ("투자", "투자한도는 어떻게 정해지나요?", "소득적격 투자자 여부와 적합성 테스트 결과에 따라 투자한도가 달라집니다. (시뮬레이션)"),
+    ("투자", "상환은 언제 되나요?", "상품의 상환일에 원금과 이자가 예치금 계좌로 입금됩니다. (시뮬레이션)"),
+    ("계정", "출금수수료가 있나요?", "예치금 출금 시 수수료는 없습니다. (시뮬레이션)"),
+    ("투자", "적합성테스트는 왜 필요한가요?", "투자자 보호를 위해 투자 전 적합성 테스트를 통과해야 합니다. (시뮬레이션)"),
+]
+
 
 class Command(BaseCommand):
     help = "데모용 가상 사용자·상품·콘텐츠를 생성한다"
@@ -79,11 +87,10 @@ class Command(BaseCommand):
                 category="important", title="서비스 오픈 안내", body="데일리펀딩 클론 데모"
             )
         if not Faq.objects.exists():
-            Faq.objects.create(
-                category="투자",
-                question="예치금은 어떻게 충전하나요?",
-                answer="가상계좌로 입금하면 자동 반영됩니다. (시뮬레이션)",
-            )
+            for category, question, answer in FAQS:
+                Faq.objects.create(
+                    category=category, question=question, answer=answer
+                )
         if not LoanProduct.objects.exists():
             LoanProduct.objects.create(
                 category="personal",
