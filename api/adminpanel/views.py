@@ -540,14 +540,14 @@ class SeedProductsView(APIView):
 
     permission_classes = (IsStaff,)
 
-    NAMES = [
-        "아파트 담보대출",
-        "오피스텔 담보대출",
-        "매출채권 유동화",
-        "스탁론",
-        "개인신용 대출",
-        "상가 담보대출",
-        "이커머스 셀러론",
+    NAME_TYPES = [
+        ("아파트 담보대출", Product.Type.MORTGAGE),
+        ("오피스텔 담보대출", Product.Type.MORTGAGE),
+        ("매출채권 유동화", Product.Type.SCF),
+        ("스탁론", Product.Type.STOCK_LOAN),
+        ("개인신용 대출", Product.Type.PERSONAL_CREDIT),
+        ("상가 담보대출", Product.Type.MORTGAGE),
+        ("이커머스 셀러론", Product.Type.SCF),
     ]
     TAGS = ["조기상환가능", "연장가능", "분할상환", "보증보험"]
 
@@ -567,7 +567,6 @@ class SeedProductsView(APIView):
         seed = request.data.get("seed")
         rng = random.Random(seed)
 
-        types = list(Product.Type.values)
         statuses_open = [
             Product.Status.SCHEDULED,
             Product.Status.RECRUITING,
@@ -580,7 +579,7 @@ class SeedProductsView(APIView):
         base_seq = (Product.objects.aggregate(m=Max("id"))["m"] or 0)
         created = []
         for i in range(count):
-            ptype = rng.choice(types)
+            name_base, ptype = rng.choice(self.NAME_TYPES)
             target = rng.randrange(amount_min // 10_000, amount_max // 10_000) * 10_000
             st = status or rng.choice(statuses_open)
             # 원장 정합성: raised_amount는 실제 투자 주문으로만 올린다.
@@ -593,7 +592,7 @@ class SeedProductsView(APIView):
                 fill_ratio = rng.choice([0.2, 0.4, 0.7])
             p = Product.objects.create(
                 product_no=f"{year}-{base_seq + i + 1}",
-                name=f"{rng.choice(self.NAMES)} {base_seq + i + 1}호",
+                name=f"{name_base} {base_seq + i + 1}호",
                 type=ptype,
                 annual_rate=round(rng.uniform(rate_min, rate_max), 2),
                 term_months=rng.randint(term_min, term_max),
