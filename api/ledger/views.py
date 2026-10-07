@@ -153,7 +153,22 @@ class DepositHistoryView(APIView):
 
 
 class LinkedAccountView(APIView):
-    """PUT /api/deposit/linked-account — 연결계좌 등록 (F-DEP-05)."""
+    """GET/PUT /api/deposit/linked-account — 연결계좌 조회·등록 (F-DEP-05)."""
+
+    @extend_schema(responses=LinkedAccountResponseSerializer)
+    def get(self, request):
+        la = getattr(request.user, "linked_account", None)
+        if la is None:
+            return Response({"linked": False})
+        return Response(
+            {
+                "linked": True,
+                "bank_name": la.bank_name,
+                "account_no": la.account_no,
+                "holder": la.holder,
+                "auto_charge": la.auto_charge,
+            }
+        )
 
     @extend_schema(
         request=LinkedAccountSerializer,

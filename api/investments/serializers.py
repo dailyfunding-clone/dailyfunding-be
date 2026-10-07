@@ -138,3 +138,6 @@ class ReservationResponseSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     status = serializers.CharField()
     amount = serializers.IntegerField()
+    investment_id = serializers.IntegerField(required=False)
+    product_name = serializers.CharField(required=False)
+    created_at = serializers.DateTimeField(required=False)
