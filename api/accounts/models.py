@@ -29,9 +29,17 @@ class User(AbstractBaseUser, PermissionsMixin):
         INCOME_ELIGIBLE = "income_eligible", "소득적격투자자"
         PROFESSIONAL = "professional", "전문투자자"
 
+    class MemberType(models.TextChoices):
+        PERSONAL = "personal", "개인"
+        CORPORATE = "corporate", "법인"
+
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=50, blank=True)
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.INVESTOR)
+    member_type = models.CharField(
+        max_length=16, choices=MemberType.choices, default=MemberType.PERSONAL
+    )
+    business_number = models.CharField(max_length=10, blank=True)
     grade = models.CharField(
         max_length=20, choices=Grade.choices, default=Grade.GENERAL
     )
@@ -178,6 +186,16 @@ class AppLoginCode(models.Model):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     code = models.CharField(max_length=6, unique=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class PasswordResetToken(models.Model):
+    """비밀번호 재설정 토큰 (F-AUTH-03). 모의 이메일 링크용."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    token = models.CharField(max_length=128, unique=True)
     expires_at = models.DateTimeField()
     used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
