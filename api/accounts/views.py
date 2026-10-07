@@ -10,11 +10,19 @@ from api.accounts.models import AppLoginCode, User
 from api.accounts.serializers import (
     AppCodeExchangeSerializer,
     AppCodeIssueResponseSerializer,
+    BusinessNumberVerifyResponseSerializer,
+    BusinessNumberVerifySerializer,
+    FindIdResponseSerializer,
+    FindIdSerializer,
     IdentityVerifyResponseSerializer,
     IdentityVerifySerializer,
     LoginResponseSerializer,
     LoginSerializer,
     OkResponseSerializer,
+    PasswordResetRequestResponseSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetResponseSerializer,
+    PasswordResetSerializer,
     PinLoginSerializer,
     PinRegisterResponseSerializer,
     PinRegisterSerializer,
@@ -31,6 +39,9 @@ from api.common.auth import (
     set_auth_cookies,
 )
 from api.common.exceptions import NotFound, Unauthorized, ValidationFailed
+
+
+UNREGISTERED_BUSINESS_NUMBERS = {"0000000000"}
 
 
 def _login_payload(user):
@@ -55,7 +66,13 @@ class SignupView(APIView):
         s.is_valid(raise_exception=True)
         d = s.validated_data
         user = services.create_user_account(
-            d["email"], d["password"], self.role, d["agreements"], d.get("name", "")
+            d["email"],
+            d["password"],
+            self.role,
+            d["agreements"],
+            d.get("name", ""),
+            d["member_type"],
+            d.get("business_number", ""),
         )
         referrer_email = d.get("referrer_email")
         if referrer_email:
@@ -94,34 +111,34 @@ class LoginView(APIView):
         user = User.objects.filter(email=s.validated_data["email"]).first()
         if user is None or not user.check_password(s.validated_data["password"]):
             raise Unauthorized("invalid credentials")
-        return set_auth_cookies(Response(_login_payload(user)), user)
+        return set_auth_cookies(
+            Response(_login_payload(user)),
+            user,
+            persistent=s.validated_data["keep_login"],
+        )
 
 
 class PinLoginView(APIView):
-    permission_classes = (AllowAny,)
+    """저장된 세션(로그인 상태) 사용자의 간편비밀번호 잠금 해제."""
 
     @extend_schema(request=PinLoginSerializer, responses=LoginResponseSerializer)
     def post(self, request):
         s = PinLoginSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        user = request.user if request.user.is_authenticated else None
-        if user is None:
-            email = s.validated_data.get("email")
-            if not email:
-                raise ValidationFailed(
-                    "email required for pin login", {"email": ["required"]}
-                )
-            user = User.objects.filter(email=email).first()
-        if user is None:
-            raise Unauthorized("invalid credentials")
-        if not services.check_pin(user, s.validated_data["pin"]):
+        if not services.check_pin(request.user, s.validated_data["pin"]):
             raise Unauthorized("invalid pin")
-        return set_auth_cookies(Response(_login_payload(user)), user)
+        return set_auth_cookies(Response(_login_payload(request.user)), request.user)
 
 
 class LogoutView(APIView):
     @extend_schema(request=None, responses=OkResponseSerializer)
     def post(self, request):
+        request.user.pin_hash = ""
+        request.user.pin_failures = 0
+        request.user.pin_locked_at = None
+        request.user.save(
+            update_fields=["pin_hash", "pin_failures", "pin_locked_at"]
+        )
         raw = request.COOKIES.get(REFRESH_COOKIE)
         if raw:
             try:
@@ -136,7 +153,7 @@ class RefreshView(APIView):
 
     @extend_schema(request=None, responses=LoginResponseSerializer)
     def post(self, request):
-        raw = request.COOKIES.get(REFRESH_COOKIE)
+        raw = request.COOKIES.get(REFRESH_COOKIE) or request.data.get("refresh")
         if not raw:
             raise Unauthorized("refresh token missing")
         try:
@@ -177,6 +194,24 @@ class IdentityVerifyView(APIView):
         return Response({"ci": identity.ci, "verified": True})
 
 
+class BusinessNumberVerifyView(APIView):
+    """사업자등록번호 인증 모의 (F-AUTH-01)."""
+
+    permission_classes = (AllowAny,)
+
+    @extend_schema(
+        request=BusinessNumberVerifySerializer,
+        responses=BusinessNumberVerifyResponseSerializer,
+    )
+    def post(self, request):
+        s = BusinessNumberVerifySerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        number = s.validated_data["business_number"]
+        if number in UNREGISTERED_BUSINESS_NUMBERS:
+            return Response({"verified": False, "reason": "unregistered"})
+        return Response({"verified": True})
+
+
 class PinRegisterView(APIView):
     @extend_schema(
         request=PinRegisterSerializer,
@@ -194,7 +229,11 @@ class ReauthView(APIView):
     def post(self, request):
         s = ReauthSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        if not request.user.check_password(s.validated_data["password"]):
+        d = s.validated_data
+        if d.get("pin"):
+            if not services.check_pin(request.user, d["pin"]):
+                raise Unauthorized("invalid pin")
+        elif not request.user.check_password(d["password"]):
             raise Unauthorized("invalid password")
         token, ttl = issue_reauth_token(request.user)
         return Response({"reauth_token": token, "expires_in": ttl})
@@ -232,6 +271,59 @@ class AppCodeExchangeView(APIView):
         code.used = True
         code.save(update_fields=["used"])
         return set_auth_cookies(Response(_login_payload(code.user)), code.user)
+
+
+class FindIdView(APIView):
+    """아이디 찾기 (F-AUTH-03). 모의 SMS 본인확인."""
+
+    permission_classes = (AllowAny,)
+
+    @extend_schema(
+        request=FindIdSerializer, responses=FindIdResponseSerializer
+    )
+    def post(self, request):
+        s = FindIdSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        d = s.validated_data
+        email = services.find_email_by_identity(
+            d["name"], d["birth_date"], d["phone"]
+        )
+        return Response({"email": email})
+
+
+class PasswordResetRequestView(APIView):
+    """비밀번호 재설정 링크 발송 모의 (F-AUTH-03). 이메일 존재 여부를 숨긴다."""
+
+    permission_classes = (AllowAny,)
+
+    @extend_schema(
+        request=PasswordResetRequestSerializer,
+        responses=PasswordResetRequestResponseSerializer,
+    )
+    def post(self, request):
+        s = PasswordResetRequestSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        user = User.objects.filter(email=s.validated_data["email"]).first()
+        dev_token = None
+        if user is not None:
+            dev_token = services.issue_password_reset_token(user).token
+        return Response({"sent": True, "dev_token": dev_token})
+
+
+class PasswordResetView(APIView):
+    permission_classes = (AllowAny,)
+
+    @extend_schema(
+        request=PasswordResetSerializer,
+        responses=PasswordResetResponseSerializer,
+    )
+    def post(self, request):
+        s = PasswordResetSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        services.reset_password(
+            s.validated_data["token"], s.validated_data["new_password"]
+        )
+        return Response({"reset": True})
 
 
 class MeView(APIView):

@@ -10,9 +10,16 @@ urlpatterns = [
     path("auth/logout", views.LogoutView.as_view()),
     path("auth/refresh", views.RefreshView.as_view()),
     path("auth/identity/verify", views.IdentityVerifyView.as_view()),
+    path(
+        "auth/business-number/verify",
+        views.BusinessNumberVerifyView.as_view(),
+    ),
     path("auth/pin", views.PinRegisterView.as_view()),
     path("auth/reauth", views.ReauthView.as_view()),
     path("auth/app-code", views.AppCodeIssueView.as_view()),
     path("auth/app-code/exchange", views.AppCodeExchangeView.as_view()),
+    path("auth/find-id", views.FindIdView.as_view()),
+    path("auth/password/reset-request", views.PasswordResetRequestView.as_view()),
+    path("auth/password/reset", views.PasswordResetView.as_view()),
     path("me", views.MeView.as_view()),
 ]

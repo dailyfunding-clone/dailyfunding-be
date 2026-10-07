@@ -25,21 +25,35 @@ class CookieJWTAuthentication(JWTAuthentication):
         return super().authenticate(request)
 
 
-def set_auth_cookies(response: Response, user) -> Response:
+def set_auth_cookies(
+    response: Response, user, persistent: bool = True
+) -> Response:
     refresh = RefreshToken.for_user(user)
+    response.data["access_token"] = str(refresh.access_token)
+    response.data["refresh_token"] = str(refresh)
+    access_max_age = (
+        int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
+        if persistent
+        else None
+    )
+    refresh_max_age = (
+        int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
+        if persistent
+        else None
+    )
     response.set_cookie(
         ACCESS_COOKIE,
         str(refresh.access_token),
         httponly=True,
         samesite="Lax",
-        max_age=int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
+        max_age=access_max_age,
     )
     response.set_cookie(
         REFRESH_COOKIE,
         str(refresh),
         httponly=True,
         samesite="Lax",
-        max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+        max_age=refresh_max_age,
     )
     return response
 
