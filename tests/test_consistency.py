@@ -24,7 +24,12 @@ from api.ledger import services as ledger
 from api.ledger.models import DepositIntent, Withdrawal
 from api.products.models import Product
 from jobs.tasks import reconcile_ledger, repay_daily
-from tests.conftest import deposit_webhook_payload, fund, signed_post
+from tests.conftest import (
+    deposit_webhook_payload,
+    fund,
+    reauth_header,
+    signed_post,
+)
 
 
 # ---- 1. 모집 잔액 경합 ----
@@ -42,6 +47,9 @@ def test_recruitment_race_no_overbooking(user, product):
     product.target_amount = 10_000_000
     product.save(update_fields=["type", "target_amount"])
     fund(user, 100_000_000)
+    auth_client = APIClient()
+    auth_client.force_authenticate(user=user)
+    reauth = reauth_header(auth_client)
 
     def order(i):
         try:
@@ -52,6 +60,7 @@ def test_recruitment_race_no_overbooking(user, product):
                 {"product_id": product.id, "amount": 5_000_000},
                 format="json",
                 HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+                **reauth,
             )
         finally:
             connections.close_all()
@@ -84,8 +93,15 @@ def test_idempotent_investment_replay(user, product):
     client.force_authenticate(user=user)
     body = {"product_id": product.id, "amount": 1_000_000}
 
-    r1 = client.post("/api/investments", body, format="json", HTTP_IDEMPOTENCY_KEY=key)
-    r2 = client.post("/api/investments", body, format="json", HTTP_IDEMPOTENCY_KEY=key)
+    reauth = reauth_header(client)
+    r1 = client.post(
+        "/api/investments", body, format="json",
+        HTTP_IDEMPOTENCY_KEY=key, **reauth,
+    )
+    r2 = client.post(
+        "/api/investments", body, format="json",
+        HTTP_IDEMPOTENCY_KEY=key, **reauth,
+    )
 
     assert r1.status_code == 201
     assert r2.status_code == 200
@@ -98,13 +114,14 @@ def test_idempotent_investment_replay(user, product):
         {"product_id": product.id, "amount": 2_000_000},
         format="json",
         HTTP_IDEMPOTENCY_KEY=key,
+        **reauth,
     )
     assert r3.status_code == 409
     assert r3.json()["code"] == "IDEMPOTENCY_KEY_MISMATCH"
     assert Investment.objects.count() == 1
 
     # 키 누락 → 400
-    r4 = client.post("/api/investments", body, format="json")
+    r4 = client.post("/api/investments", body, format="json", **reauth)
     assert r4.status_code == 400
     assert r4.json()["code"] == "IDEMPOTENCY_KEY_REQUIRED"
 

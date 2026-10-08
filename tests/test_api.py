@@ -19,6 +19,7 @@ from tests.conftest import (
     PASSWORD,
     deposit_webhook_payload,
     fund,
+    reauth_header,
     signed_post,
 )
 
@@ -71,6 +72,19 @@ def test_login_sets_cookies(api, user):
 
 
 @pytest.mark.django_db
+def test_invest_requires_reauth(auth_api, product):
+    """민감 동작: X-Reauth-Token 없는 투자 주문은 401."""
+    r = auth_api.post(
+        "/api/investments",
+        {"product_id": product.id, "amount": 1_000_000},
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+    )
+    assert r.status_code == 401
+    assert r.json()["code"] == "REAUTH_REQUIRED"
+
+
+@pytest.mark.django_db
 def test_invest_requires_suitability(api, product):
     # 적합성 미통과 사용자
     u = User.objects.create_user("bare@test.local", PASSWORD)
@@ -82,6 +96,7 @@ def test_invest_requires_suitability(api, product):
         {"product_id": product.id, "amount": 1_000_000},
         format="json",
         HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+        **reauth_header(api),
     )
     assert r.status_code == 403
     assert r.json()["code"] == "SUITABILITY_REQUIRED"
@@ -94,6 +109,7 @@ def test_invest_insufficient_deposit(auth_api, product):
         {"product_id": product.id, "amount": 1_000_000},
         format="json",
         HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+        **reauth_header(auth_api),
     )
     assert r.status_code == 409
     assert r.json()["code"] == "INSUFFICIENT_DEPOSIT"
@@ -109,6 +125,7 @@ def test_invest_borrower_limit(auth_api, user, product):
         {"product_id": product.id, "amount": 5_000_000},
         format="json",
         HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+        **reauth_header(auth_api),
     )
     assert r1.status_code == 201
 
@@ -129,6 +146,7 @@ def test_invest_borrower_limit(auth_api, user, product):
         {"product_id": p2.id, "amount": 1_000_000},
         format="json",
         HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+        **reauth_header(auth_api),
     )
     assert r2.status_code == 403
     assert r2.json()["code"] == "BORROWER_LIMIT_EXCEEDED"
@@ -155,6 +173,7 @@ def test_invest_total_grade_limit(auth_api, user, product):
         {"product_id": p2.id, "amount": 41_000_000},
         format="json",
         HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+        **reauth_header(auth_api),
     )
     assert r.status_code == 403
     assert r.json()["code"] == "GRADE_LIMIT_EXCEEDED"
@@ -171,6 +190,7 @@ def test_invest_closed_product(auth_api, user, product):
         {"product_id": product.id, "amount": 1_000_000},
         format="json",
         HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+        **reauth_header(auth_api),
     )
     assert r.status_code == 409
     assert r.json()["code"] == "RECRUITMENT_CLOSED"
@@ -187,6 +207,7 @@ def test_invest_recruited_on_full(auth_api, user, product):
         {"product_id": product.id, "amount": 4_000_000},  # 전문 40% 상한 내
         format="json",
         HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+        **reauth_header(auth_api),
     )
     assert r.status_code == 201
     product.refresh_from_db()
@@ -295,6 +316,7 @@ def test_e2e_lifecycle(api, staff_api, user):
         {"product_id": pid, "amount": 5_000_000},
         format="json",
         HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+        **reauth_header(api),
     )
     assert r.status_code == 201
     inv_id = r.json()["investment_id"]
