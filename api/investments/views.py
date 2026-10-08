@@ -4,6 +4,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api.common.auth import require_reauth
 from api.common.exceptions import NotFound, StateConflict, ValidationFailed
 from api.common.idempotency import run_idempotent
 from api.investments import services
@@ -80,6 +81,7 @@ class InvestmentListCreateView(APIView):
         responses={201: InvestmentResponseSerializer},
     )
     def post(self, request):
+        require_reauth(request)
         s = InvestOrderSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         d = s.validated_data

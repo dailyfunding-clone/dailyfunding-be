@@ -8,7 +8,7 @@ from django.utils import timezone
 from api.ledger import services as ledger
 from api.ledger.models import PointEntry
 from api.products.models import Product
-from tests.conftest import PASSWORD, fund
+from tests.conftest import PASSWORD, fund, reauth_header
 
 
 @pytest.mark.django_db
@@ -48,6 +48,7 @@ def test_point_use_in_investment(auth_api, user, product):
         {"product_id": product.id, "amount": 5_000_000, "use_points": 500_000},
         format="json",
         HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+        **reauth_header(auth_api),
     )
     assert r.status_code == 201
     assert r.json()["points_used"] == 500_000

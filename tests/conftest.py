@@ -121,6 +121,13 @@ def deposit_webhook_payload(account_no, sender, amount, event_id=None):
     }
 
 
+def reauth_header(client, password=PASSWORD):
+    """민감 동작용 X-Reauth-Token 헤더 발급."""
+    r = client.post("/api/auth/reauth", {"password": password}, format="json")
+    assert r.status_code == 200, r.content
+    return {"HTTP_X_REAUTH_TOKEN": r.json()["reauth_token"]}
+
+
 def signed_post(client, path, payload, secret=None, ts=None):
     """HMAC 서명을 붙여 웹훅 엔드포인트로 POST."""
     body = json.dumps(payload).encode()
