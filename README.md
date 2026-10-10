@@ -16,7 +16,7 @@
 - `api/adminpanel` — 운영자 API(상품/대출/배치/시드/시간 진행)
 - `mockbank` — 모의 은행. 입금/이체 실행 후 서명된 웹훅을 발행. `force_fail`, `force_mismatch`, `delay_ms` 실패 주입 지원
 - `jobs` — Celery 배치: 상환 실행, 포인트 소멸, 원장 대사, 웹훅 재시도(지수 백오프, 최대 8회), 예약 롤오버
-- `ops` — `e2e_check.py` E2E 스크립트, `k6/` 투자 경합 시나리오
+- `ops` — 운영 관리 커맨드 Django 앱. E2E/부하 스크립트는 상위 `dailyfunding-workspace/scripts/`에 위치
 - `tests` — PRD §5의 6개 정합성 시나리오 포함 pytest 스위트
 
 ## 실행
@@ -27,7 +27,7 @@ pip install -r requirements.txt
 cp .env.example .env
 
 # Postgres/Redis: 로컬 또는
-docker compose up -d db redis
+docker compose up -d postgres redis
 
 python manage.py migrate
 python manage.py runserver
@@ -43,9 +43,9 @@ celery -A config beat -l info
 ## 검증
 
 ```bash
-pytest                                          # 31개 테스트 (정합성 6 시나리오 포함)
+pytest
 python manage.py spectacular --format openapi-json --file schema.json
-python ops/e2e_check.py                         # 가입→입금→투자→상환→출금 E2E (runserver 기동 상태에서)
+python ../scripts/e2e-lifecycle.py              # 가입→입금→투자→상환→출금 E2E (runserver 기동 상태에서)
 ```
 
 ## 운영자 유틸

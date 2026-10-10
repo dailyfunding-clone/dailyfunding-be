@@ -612,6 +612,15 @@
         "/api/admin/grade-requests": {
             "get": {
                 "operationId": "api_admin_grade_requests_retrieve",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "tags": [
                     "api"
                 ],
@@ -691,6 +700,15 @@
         "/api/admin/loan-applications": {
             "get": {
                 "operationId": "api_admin_loan_applications_retrieve",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "tags": [
                     "api"
                 ],
@@ -1434,6 +1452,100 @@
                 }
             }
         },
+        "/api/auth/business-number/verify": {
+            "post": {
+                "operationId": "api_auth_business_number_verify_create",
+                "description": "사업자등록번호 인증 모의 (F-AUTH-01).",
+                "tags": [
+                    "api"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BusinessNumberVerify"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BusinessNumberVerify"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BusinessNumberVerify"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BusinessNumberVerifyResponse"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/auth/find-id": {
+            "post": {
+                "operationId": "api_auth_find_id_create",
+                "description": "아이디 찾기 (F-AUTH-03). 모의 SMS 본인확인.",
+                "tags": [
+                    "api"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FindId"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FindId"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FindId"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FindIdResponse"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/auth/identity/verify": {
             "post": {
                 "operationId": "api_auth_identity_verify_create",
@@ -1464,8 +1576,7 @@
                 "security": [
                     {
                         "cookieAuth": []
-                    },
-                    {}
+                    }
                 ],
                 "responses": {
                     "200": {
@@ -1530,6 +1641,7 @@
         "/api/auth/login/pin": {
             "post": {
                 "operationId": "api_auth_login_pin_create",
+                "description": "저장된 세션(로그인 상태) 사용자의 간편비밀번호 잠금 해제.",
                 "tags": [
                     "api"
                 ],
@@ -1556,8 +1668,7 @@
                 "security": [
                     {
                         "cookieAuth": []
-                    },
-                    {}
+                    }
                 ],
                 "responses": {
                     "200": {
@@ -1590,6 +1701,99 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/OkResponse"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/auth/password/reset": {
+            "post": {
+                "operationId": "api_auth_password_reset_create",
+                "tags": [
+                    "api"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordReset"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordReset"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordReset"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PasswordResetResponse"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/auth/password/reset-request": {
+            "post": {
+                "operationId": "api_auth_password_reset_request_create",
+                "description": "비밀번호 재설정 링크 발송 모의 (F-AUTH-03). 이메일 존재 여부를 숨긴다.",
+                "tags": [
+                    "api"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordResetRequest"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordResetRequest"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordResetRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PasswordResetRequestResponse"
                                 }
                             }
                         },
@@ -1666,8 +1870,7 @@
                                 "$ref": "#/components/schemas/Reauth"
                             }
                         }
-                    },
-                    "required": true
+                    }
                 },
                 "security": [
                     {
@@ -2003,9 +2206,33 @@
             }
         },
         "/api/deposit/linked-account": {
+            "get": {
+                "operationId": "api_deposit_linked_account_retrieve",
+                "description": "GET/PUT /api/deposit/linked-account — 연결계좌 조회·등록 (F-DEP-05).",
+                "tags": [
+                    "api"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LinkedAccountResponse"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
             "put": {
                 "operationId": "api_deposit_linked_account_update",
-                "description": "PUT /api/deposit/linked-account — 연결계좌 등록 (F-DEP-05).",
+                "description": "GET/PUT /api/deposit/linked-account — 연결계좌 조회·등록 (F-DEP-05).",
                 "tags": [
                     "api"
                 ],
@@ -2868,6 +3095,42 @@
                 }
             }
         },
+        "/api/metrics/vitals": {
+            "post": {
+                "operationId": "api_metrics_vitals_create",
+                "tags": [
+                    "api"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Vital"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Vital"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Vital"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
         "/api/news": {
             "get": {
                 "operationId": "api_news_retrieve",
@@ -2982,9 +3245,33 @@
             }
         },
         "/api/notifications/settings": {
+            "get": {
+                "operationId": "api_notifications_settings_retrieve",
+                "description": "GET/POST /api/notifications/settings — 알림 설정 조회·변경.",
+                "tags": [
+                    "api"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NotificationSettingsGet"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
             "post": {
                 "operationId": "api_notifications_settings_create",
-                "description": "POST /api/notifications/settings — 카테고리별 ON/OFF.",
+                "description": "GET/POST /api/notifications/settings — 알림 설정 조회·변경.",
                 "tags": [
                     "api"
                 ],
@@ -3129,6 +3416,14 @@
                 "operationId": "api_products_list",
                 "description": "GET /api/products — 투자 상품 목록 (F-INV-01).",
                 "parameters": [
+                    {
+                        "in": "query",
+                        "name": "ids",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Comma-separated positive product IDs (up to 100)."
+                    },
                     {
                         "in": "query",
                         "name": "include_closed",
@@ -3317,7 +3612,73 @@
                 }
             }
         },
+        "/api/products/stream": {
+            "get": {
+                "operationId": "api_products_stream_retrieve",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Last-Event-ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "ids",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Comma-separated positive product IDs (up to 100). Omit for all public products."
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductProgress"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/reservations": {
+            "get": {
+                "operationId": "api_reservations_list",
+                "tags": [
+                    "api"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ReservationResponse"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
             "post": {
                 "operationId": "api_reservations_create",
                 "tags": [
@@ -4148,6 +4509,31 @@
                     "type"
                 ]
             },
+            "BusinessNumberVerify": {
+                "type": "object",
+                "properties": {
+                    "business_number": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "business_number"
+                ]
+            },
+            "BusinessNumberVerifyResponse": {
+                "type": "object",
+                "properties": {
+                    "verified": {
+                        "type": "boolean"
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "verified"
+                ]
+            },
             "CalendarDay": {
                 "type": "object",
                 "properties": {
@@ -4752,6 +5138,36 @@
                     "total"
                 ]
             },
+            "FindId": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "birth_date": {
+                        "type": "string"
+                    },
+                    "phone": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "birth_date",
+                    "name",
+                    "phone"
+                ]
+            },
+            "FindIdResponse": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email"
+                ]
+            },
             "GradeEnum": {
                 "enum": [
                     "general",
@@ -5275,26 +5691,23 @@
             "LinkedAccountResponse": {
                 "type": "object",
                 "properties": {
+                    "linked": {
+                        "type": "boolean"
+                    },
                     "bank_name": {
-                        "type": "string",
-                        "maxLength": 20
+                        "type": "string"
                     },
                     "account_no": {
-                        "type": "string",
-                        "maxLength": 32
+                        "type": "string"
                     },
                     "holder": {
-                        "type": "string",
-                        "maxLength": 50
+                        "type": "string"
                     },
-                    "linked": {
+                    "auto_charge": {
                         "type": "boolean"
                     }
                 },
                 "required": [
-                    "account_no",
-                    "bank_name",
-                    "holder",
                     "linked"
                 ]
             },
@@ -5528,6 +5941,10 @@
                     },
                     "password": {
                         "type": "string"
+                    },
+                    "keep_login": {
+                        "type": "boolean",
+                        "default": true
                     }
                 },
                 "required": [
@@ -5765,6 +6182,17 @@
                     "results"
                 ]
             },
+            "NotificationSettingsGet": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "enabled"
+                ]
+            },
             "NotifyIntent": {
                 "type": "object",
                 "properties": {
@@ -5842,6 +6270,60 @@
                         }
                     }
                 }
+            },
+            "PasswordReset": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    },
+                    "new_password": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "new_password",
+                    "token"
+                ]
+            },
+            "PasswordResetRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    }
+                },
+                "required": [
+                    "email"
+                ]
+            },
+            "PasswordResetRequestResponse": {
+                "type": "object",
+                "properties": {
+                    "sent": {
+                        "type": "boolean"
+                    },
+                    "dev_token": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "dev_token",
+                    "sent"
+                ]
+            },
+            "PasswordResetResponse": {
+                "type": "object",
+                "properties": {
+                    "reset": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "reset"
+                ]
             },
             "PatchedAdminDisclosurePatch": {
                 "type": "object",
@@ -6018,10 +6500,6 @@
                 "properties": {
                     "pin": {
                         "type": "string"
-                    },
-                    "email": {
-                        "type": "string",
-                        "format": "email"
                     }
                 },
                 "required": [
@@ -6300,6 +6778,29 @@
                     "type"
                 ]
             },
+            "ProductProgress": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "raised_amount": {
+                        "type": "integer"
+                    },
+                    "remaining": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/StatusEnum"
+                    }
+                },
+                "required": [
+                    "id",
+                    "raised_amount",
+                    "remaining",
+                    "status"
+                ]
+            },
             "ProductUpsert": {
                 "type": "object",
                 "properties": {
@@ -6370,11 +6871,13 @@
                 "properties": {
                     "password": {
                         "type": "string"
+                    },
+                    "pin": {
+                        "type": "string",
+                        "maxLength": 6,
+                        "minLength": 6
                     }
-                },
-                "required": [
-                    "password"
-                ]
+                }
             },
             "ReauthResponse": {
                 "type": "object",
@@ -6515,6 +7018,16 @@
                     },
                     "amount": {
                         "type": "integer"
+                    },
+                    "investment_id": {
+                        "type": "integer"
+                    },
+                    "product_name": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
                     }
                 },
                 "required": [
@@ -6709,6 +7222,19 @@
                         "type": "string",
                         "default": ""
                     },
+                    "member_type": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/SignupMemberTypeEnum"
+                            }
+                        ],
+                        "default": "personal"
+                    },
+                    "business_number": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 10
+                    },
                     "referrer_email": {
                         "oneOf": [
                             {
@@ -6733,6 +7259,14 @@
                     "email",
                     "password"
                 ]
+            },
+            "SignupMemberTypeEnum": {
+                "enum": [
+                    "personal",
+                    "corporate"
+                ],
+                "type": "string",
+                "description": "* `personal` - personal\n* `corporate` - corporate"
             },
             "SignupResponse": {
                 "type": "object",
@@ -6953,6 +7487,12 @@
                     "grade": {
                         "$ref": "#/components/schemas/GradeEnum"
                     },
+                    "is_staff": {
+                        "type": "boolean"
+                    },
+                    "member_type": {
+                        "$ref": "#/components/schemas/UserMemberTypeEnum"
+                    },
                     "pin_registered": {
                         "type": "boolean",
                         "readOnly": true
@@ -6967,6 +7507,41 @@
                     "id",
                     "identity_verified",
                     "pin_registered"
+                ]
+            },
+            "UserMemberTypeEnum": {
+                "enum": [
+                    "personal",
+                    "corporate"
+                ],
+                "type": "string",
+                "description": "* `personal` - 개인\n* `corporate` - 법인"
+            },
+            "Vital": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "value": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "path": {
+                        "type": "string",
+                        "maxLength": 2048
+                    },
+                    "ts": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "required": [
+                    "name",
+                    "path",
+                    "ts",
+                    "value"
                 ]
             },
             "Withdraw": {
