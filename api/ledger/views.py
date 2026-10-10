@@ -84,11 +84,11 @@ class WithdrawView(APIView):
         responses={202: WithdrawResponseSerializer},
     )
     def post(self, request):
-        require_reauth(request)
         s = WithdrawSerializer(data=request.data)
         s.is_valid(raise_exception=True)
 
         def handler():
+            require_reauth(request)
             amount = s.validated_data.get("amount")
             if s.validated_data.get("all"):
                 amount = services.withdrawable(request.user.id)

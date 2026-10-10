@@ -89,6 +89,9 @@ class Product(models.Model):
         self.status = to_status
         return self
 
+    class Meta:
+        indexes = [models.Index(fields=["status"])]
+
     def __str__(self):
         return f"{self.product_no} {self.name}"
 
@@ -103,6 +106,8 @@ class ProductDocument(models.Model):
 
 
 class ProductProgress(models.Model):
+    # ponytail: append-only event log, unbounded growth; add created_at +
+    # retention purge when row count matters (id cursor ordering suffices now)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     raised_amount = models.BigIntegerField()
     remaining = models.BigIntegerField()

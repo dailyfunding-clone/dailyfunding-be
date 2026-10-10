@@ -32,6 +32,12 @@ class IdempotencyKeyMismatch(ApiError):
     default_detail = "idempotency key reused with a different payload"
 
 
+class IdempotencyInProgress(ApiError):
+    status_code = status.HTTP_409_CONFLICT
+    default_code = "IDEMPOTENCY_IN_PROGRESS"
+    default_detail = "request with this key is still in progress"
+
+
 class Unauthorized(ApiError):
     status_code = status.HTTP_401_UNAUTHORIZED
     default_code = "UNAUTHORIZED"

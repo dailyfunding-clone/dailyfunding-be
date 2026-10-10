@@ -4,7 +4,11 @@ import json
 from django.db import transaction
 from rest_framework.response import Response
 
-from api.common.exceptions import IdempotencyKeyMismatch, IdempotencyKeyRequired
+from api.common.exceptions import (
+    IdempotencyInProgress,
+    IdempotencyKeyMismatch,
+    IdempotencyKeyRequired,
+)
 from api.ledger.models import IdempotencyRecord
 
 
@@ -33,9 +37,7 @@ def run_idempotent(request, payload, handler):
             if record.request_hash != request_hash:
                 raise IdempotencyKeyMismatch()
             if record.response_body is None:
-                raise IdempotencyKeyMismatch(
-                    "request with this key is still in progress"
-                )
+                raise IdempotencyInProgress()
             return Response(record.response_body, status=200)
         body, status_code = handler()
         record.response_body = body

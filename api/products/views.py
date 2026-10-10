@@ -29,6 +29,18 @@ class ProductProgressSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Product.Status.choices)
 
 
+def _parse_ids(raw):
+    if raw is None:
+        return []
+    try:
+        ids = [int(value) for value in raw.split(",")]
+        if len(ids) > 100 or any(value <= 0 or value > 2**63 - 1 for value in ids):
+            raise ValueError
+    except ValueError:
+        raise ValidationFailed("invalid ids")
+    return ids
+
+
 def progress_stream(ids, cursor):
     events = ProductProgress.objects.exclude(status=Product.Status.DRAFT).exclude(
         product__status=Product.Status.DRAFT
@@ -66,17 +78,14 @@ class ProductStreamView(APIView):
         responses={(200, "text/event-stream"): ProductProgressSerializer},
     )
     def get(self, request):
-        ids = request.query_params.get("ids")
+        ids = _parse_ids(request.query_params.get("ids"))
         cursor = request.headers.get("Last-Event-ID")
         try:
-            ids = [int(value) for value in ids.split(",")] if ids is not None else []
             cursor = int(cursor) if cursor is not None else None
-            if len(ids) > 100 or any(value <= 0 or value > 2**63 - 1 for value in ids):
-                raise ValueError
             if cursor is not None and not 0 <= cursor <= 2**63 - 1:
                 raise ValueError
         except ValueError:
-            raise ValidationFailed("Invalid product IDs or Last-Event-ID")
+            raise ValidationFailed("Invalid Last-Event-ID")
         return StreamingHttpResponse(
             progress_stream(ids, cursor),
             content_type="text/event-stream",
@@ -93,6 +102,7 @@ class ProductListView(ListAPIView):
     @extend_schema(
         parameters=[
             OpenApiParameter("status", str),
+            OpenApiParameter("ids", str, description="Comma-separated positive product IDs (up to 100)."),
             OpenApiParameter("type", str),
             OpenApiParameter("min_rate", float),
             OpenApiParameter("max_rate", float),
@@ -110,6 +120,9 @@ class ProductListView(ListAPIView):
     def get_queryset(self):
         qs = Product.objects.all()
         p = self.request.query_params
+        ids = _parse_ids(p.get("ids"))
+        if ids:
+            qs = qs.filter(id__in=ids)
         status = p.get("status")
         if status:
             qs = qs.filter(status=status)
@@ -145,21 +158,11 @@ class ProductListView(ListAPIView):
 
 def _my_block(user, product):
     """로그인 시 개인화 블록: 예치금·투자 가능액·한도 잔여."""
-    from api.investments.models import Investment
+    from api.investments.services import invested_sums
 
     limits = GRADE_LIMITS[user.grade]
-    active = Investment.objects.filter(
-        user=user, status__in=[Investment.Status.ACTIVE, Investment.Status.OVERDUE]
-    )
-    invested_total = sum(i.amount for i in active)
-    invested_re = sum(
-        i.amount for i in active if i.product.type in REAL_ESTATE_TYPES
-    )
-    same_borrower = sum(
-        i.amount
-        for i in active
-        if i.product.borrower_id == product.borrower_id
-    )
+    invested_total, invested_re, by_borrower = invested_sums(user)
+    same_borrower = by_borrower.get(product.borrower_id, 0)
 
     total_remaining = (
         None if limits["total"] is None else max(0, limits["total"] - invested_total)

@@ -54,10 +54,16 @@ def repay_daily(run_date=None):
                 status=Product.Status.REPAYING,
             ).distinct().update(status=Product.Status.OVERDUE)
 
-        # 2) 당일 지급: due_date == run_date && scheduled
+        # 2) 지급: due_date <= run_date && 미지급 (연체 표시분 추집 포함)
         due_qs = (
             RepaymentSchedule.objects.select_for_update()
-            .filter(status=RepaymentSchedule.Status.SCHEDULED, due_date=run_date)
+            .filter(
+                status__in=[
+                    RepaymentSchedule.Status.SCHEDULED,
+                    RepaymentSchedule.Status.OVERDUE,
+                ],
+                due_date__lte=run_date,
+            )
             .select_related("investment", "investment__user", "investment__product")
         )
         for s in due_qs:
@@ -93,7 +99,7 @@ def repay_daily(run_date=None):
 
         # 3) 투자·상품 종결: 모든 회차 지급 완료 시
         for inv in Investment.objects.filter(
-            schedules__due_date=run_date, status__in=[
+            schedules__due_date__lte=run_date, status__in=[
                 Investment.Status.ACTIVE, Investment.Status.OVERDUE
             ]
         ).distinct():
@@ -155,6 +161,24 @@ def reconcile_ledger(run_date=None):
     ):
         if acc["total"] < 0:
             diffs.append({"check": "non_negative", **acc})
+
+    # 차입자 계정: 이자는 차주 부담분이라 완납 시 -이자총액까지 음수가 정상.
+    # 하한 미만으로 내려간 경우만 이상으로 본다.
+    interest_by_product = {
+        r["investment__product_id"]: r["s"]
+        for r in RepaymentSchedule.objects.values(
+            "investment__product_id"
+        ).annotate(s=Sum("interest"))
+    }
+    for acc in (
+        LedgerEntry.objects.values("account")
+        .annotate(total=Sum("amount"))
+        .filter(account__regex=r"^borrower:")
+    ):
+        product_id = int(acc["account"].split(":", 1)[1])
+        floor = -(interest_by_product.get(product_id) or 0)
+        if acc["total"] < floor:
+            diffs.append({"check": "non_negative", "floor": floor, **acc})
 
     # 3) 투자별 스케줄 원금 합계 = 투자금
     for inv in Investment.objects.exclude(status=Investment.Status.CANCELLED):
@@ -235,6 +259,22 @@ def retry_webhooks():
         deliver(d)
         retried += 1
     return {"retried": retried}
+
+
+@shared_task(name="jobs.tasks.purge_idempotency_records")
+def purge_idempotency_records():
+    """idempotency.purge: TTL(기본 24h) 경과 멱등 레코드 삭제."""
+    from django.conf import settings
+
+    from api.ledger.models import IdempotencyRecord
+
+    cutoff = timezone.now() - timezone.timedelta(
+        hours=settings.IDEMPOTENCY_TTL_HOURS
+    )
+    deleted, _ = IdempotencyRecord.objects.filter(
+        created_at__lt=cutoff
+    ).delete()
+    return {"deleted": deleted}
 
 
 @shared_task(name="jobs.tasks.convert_reservations")

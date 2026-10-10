@@ -119,7 +119,10 @@ class BankDepositWebhookView(_BankWebhookView):
         from api.accounts.models import VirtualAccount
 
         account_no = payload.get("account_no", "")
-        amount = int(payload.get("amount") or 0)
+        try:
+            amount = int(payload.get("amount"))
+        except (TypeError, ValueError):
+            raise ValidationFailed("amount must be integer")
         sender = payload.get("sender_name", "")
 
         va = VirtualAccount.objects.filter(account_no=account_no).first()
@@ -127,27 +130,24 @@ class BankDepositWebhookView(_BankWebhookView):
             event.status = WebhookEvent.Status.HELD
             return
 
-        # intent 매칭: 계좌 + 금액 + 예금주명
-        intent = (
+        pending = (
             DepositIntent.objects.select_for_update()
             .filter(
                 user=va.user,
                 amount=amount,
                 status=DepositIntent.Status.PENDING,
             )
-            .order_by("id")
-            .first()
+            .order_by("created_at", "id")
         )
-        if intent is None:
-            intent = DepositIntent.objects.create(
+
+        if sender != va.holder:
+            intent = pending.first() or DepositIntent.objects.create(
                 id=DepositIntent.new_id(),
                 user=va.user,
                 amount=amount,
                 sender_name=sender,
                 status=DepositIntent.Status.HELD,
             )
-
-        if sender != va.holder:
             intent.status = DepositIntent.Status.HELD
             intent.held_reason = f"예금주명 불일치: {sender} != {va.holder}"
             intent.event_id = event.event_id
@@ -155,9 +155,17 @@ class BankDepositWebhookView(_BankWebhookView):
             event.status = WebhookEvent.Status.HELD
             return
 
-        intent.sender_name = sender
+        # intent 매칭: 계좌 + 금액 + 신고된 예금주명 (가장 오래된 건부터)
+        intent = pending.filter(sender_name=sender).first()
+        if intent is None:
+            intent = DepositIntent.objects.create(
+                id=DepositIntent.new_id(),
+                user=va.user,
+                amount=amount,
+                sender_name=sender,
+            )
         intent.event_id = event.event_id
-        intent.save(update_fields=["sender_name", "event_id"])
+        intent.save(update_fields=["event_id"])
         ledger.credit_deposit(intent)
 
 

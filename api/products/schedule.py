@@ -9,6 +9,8 @@ import calendar
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
+from api.common.exceptions import ValidationFailed
+
 TAX_RATE = Decimal("0.154")
 
 
@@ -62,9 +64,12 @@ def build_schedule(product, principal: int, base_date: date) -> list[dict]:
         elif product.repay_type == product.RepayType.EQUAL_PRINCIPAL:
             repay_principal = balance if last else _won(Decimal(principal) / n)
         else:  # equal_installment
-            repay_principal = balance if last or r == 0 else pmt - interest_gross
             if r == 0:
                 repay_principal = balance if last else _won(Decimal(principal) / n)
+            else:
+                repay_principal = (
+                    balance if last else max(0, pmt - interest_gross)
+                )
 
         tax = _won(Decimal(interest_gross) * TAX_RATE)
         rows.append(
@@ -82,7 +87,10 @@ def build_schedule(product, principal: int, base_date: date) -> list[dict]:
         balance -= repay_principal
         due = _add_months(due, 1, product.repay_day)
 
-    assert balance == 0, "schedule principal must amortize to zero"
+    if balance != 0:
+        raise ValidationFailed(
+            "schedule principal must amortize to zero", {"balance": balance}
+        )
     return rows
 
 

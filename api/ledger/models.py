@@ -35,6 +35,7 @@ class LedgerEntry(models.Model):
 
     class Meta:
         ordering = ("id",)
+        indexes = [models.Index(fields=["account", "created_at"])]
 
 
 class IdempotencyRecord(models.Model):
@@ -49,6 +50,7 @@ class IdempotencyRecord(models.Model):
 
     class Meta:
         unique_together = ("user", "key")
+        indexes = [models.Index(fields=["created_at"])]
 
 
 class DepositIntent(models.Model):
@@ -74,6 +76,9 @@ class DepositIntent(models.Model):
     event_id = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     credited_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "status"])]
 
     @staticmethod
     def new_id():
@@ -104,6 +109,9 @@ class Withdrawal(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
+    class Meta:
+        indexes = [models.Index(fields=["user", "created_at"])]
+
     @staticmethod
     def new_id():
         return f"wd-{uuid.uuid4().hex[:24]}"
@@ -130,3 +138,6 @@ class PointEntry(models.Model):
     ref_id = models.CharField(max_length=64, blank=True)
     memo = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "kind", "expires_at"])]

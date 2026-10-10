@@ -161,6 +161,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "jobs.tasks.retry_webhooks",
         "schedule": 60,
     },
+    "idempotency-purge-hourly": {
+        "task": "jobs.tasks.purge_idempotency_records",
+        "schedule": 60 * 60,
+    },
 }
 
 # mockbank -> API webhook channel

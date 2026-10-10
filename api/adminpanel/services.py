@@ -10,7 +10,7 @@ from api.ledger import services as ledger
 from api.ledger.models import DepositIntent, LedgerEntry
 from api.notifications.models import Notification, notify
 from api.products.models import Product
-from api.products.schedule import first_pay_date
+from api.products.schedule import _add_months, first_pay_date
 
 
 def transition_product(product: Product, to_status: str) -> Product:
@@ -73,15 +73,9 @@ def execute_loan(product: Product) -> Product:
         investment__product=product
     ).order_by("investment_id", "seq")
     for s in schedules:
-        s.due_date = _shift_months(first, s.seq - 1)
+        s.due_date = _add_months(first, s.seq - 1, product.repay_day)
     RepaymentSchedule.objects.bulk_update(schedules, ["due_date"])
     return product
-
-
-def _shift_months(d, months):
-    from api.products.schedule import _add_months
-
-    return _add_months(d, months, d.day)
 
 
 @transaction.atomic

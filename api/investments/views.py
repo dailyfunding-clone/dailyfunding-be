@@ -1,3 +1,5 @@
+from django.db import IntegrityError
+from django.db.models import Prefetch
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework.generics import ListAPIView
@@ -81,7 +83,6 @@ class InvestmentListCreateView(APIView):
         responses={201: InvestmentResponseSerializer},
     )
     def post(self, request):
-        require_reauth(request)
         s = InvestOrderSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         d = s.validated_data
@@ -89,6 +90,7 @@ class InvestmentListCreateView(APIView):
             raise ValidationFailed("confirm must be '네'", {"confirm": d["confirm"]})
 
         def handler():
+            require_reauth(request)
             investment, rows = services.place_investment(
                 request.user, d["product_id"], d["amount"], d.get("use_points", 0)
             )
@@ -230,24 +232,32 @@ class ReservationEligibleView(APIView):
     @extend_schema(responses=ReservationEligibleResponseSerializer)
     def get(self, request):
         soon = timezone.now().date() + timezone.timedelta(days=45)
-        invs = (
+        invs = list(
             Investment.objects.filter(
                 user=request.user, status=Investment.Status.ACTIVE
             )
             .select_related("product")
-            .prefetch_related("schedules")
+            .prefetch_related(
+                Prefetch(
+                    "schedules",
+                    queryset=RepaymentSchedule.objects.order_by("-seq"),
+                    to_attr="latest_schedules",
+                )
+            )
+        )
+        refi_product_ids = set(
+            Product.objects.filter(
+                refinance_of_id__in=[inv.product_id for inv in invs],
+                status__in=[Product.Status.SCHEDULED, Product.Status.RECRUITING],
+            ).values_list("refinance_of_id", flat=True)
         )
         results = []
         for inv in invs:
-            last = inv.schedules.order_by("-seq").first()
+            last = inv.latest_schedules[0] if inv.latest_schedules else None
             if last is None or last.status != RepaymentSchedule.Status.SCHEDULED:
                 continue
             if last.due_date > soon:
                 continue
-            refinancing = Product.objects.filter(
-                refinance_of=inv.product,
-                status__in=[Product.Status.SCHEDULED, Product.Status.RECRUITING],
-            ).exists()
             results.append(
                 {
                     "investment_id": inv.id,
@@ -255,7 +265,7 @@ class ReservationEligibleView(APIView):
                     "product_name": inv.product.name,
                     "amount": inv.amount,
                     "maturity_date": last.due_date,
-                    "refinance_open": refinancing,
+                    "refinance_open": inv.product_id in refi_product_ids,
                 }
             )
         return Response({"results": results})
@@ -302,11 +312,10 @@ class ReservationListCreateView(APIView):
             raise ValidationFailed(
                 "amount exceeds invested principal", {"amount": inv.amount}
             )
-        if Reservation.objects.filter(
-            investment=inv, status=Reservation.Status.RESERVED
-        ).exists():
+        try:
+            res = Reservation.objects.create(investment=inv, amount=amount)
+        except IntegrityError:
             raise StateConflict("reservation already exists")
-        res = Reservation.objects.create(investment=inv, amount=amount)
         return Response(
             {"id": res.id, "status": res.status, "amount": res.amount}, status=201
         )
