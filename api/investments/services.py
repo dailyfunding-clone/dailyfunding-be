@@ -131,6 +131,7 @@ def create_schedules(investment: Investment, product: Product, base_date):
 @transaction.atomic
 def place_investment(user: User, product_id: int, amount: int, use_points: int = 0):
     """단일 트랜잭션 + 상품 행 잠금으로 모집 잔액 경합을 직렬화한다."""
+    ledger.lock_user(user.id)
     product = Product.objects.select_for_update().filter(pk=product_id).first()
     if product is None:
         raise ValidationFailed("product not found", {"product_id": "invalid"})

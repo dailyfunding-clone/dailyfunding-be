@@ -73,24 +73,39 @@ class _BankWebhookView(APIView):
         if not event_id:
             raise ValidationFailed("event_id required")
 
-        # 멱등: event_id 유니크, 재수신 시 200만 반환
-        event, created = WebhookEvent.objects.get_or_create(
-            event_id=event_id,
-            defaults={
-                "type": payload.get("type", ""),
-                "payload": payload,
-                "signature": signature,
-            },
-        )
-        if not created:
-            return Response({"received": True, "deduplicated": True})
-
-        with transaction.atomic():
-            self.handle(payload, event)
-            if event.status == WebhookEvent.Status.RECEIVED:
-                event.status = WebhookEvent.Status.PROCESSED
-            event.processed_at = timezone.now()
-            event.save(update_fields=["status", "processed_at"])
+        # 멱등: event_id 유니크. PROCESSED만 재수신 무시,
+        # FAILED/HELD/RECEIVED는 같은 트랜잭션에서 재처리.
+        try:
+            with transaction.atomic():
+                event, created = WebhookEvent.objects.select_for_update().get_or_create(
+                    event_id=event_id,
+                    defaults={
+                        "type": payload.get("type", ""),
+                        "payload": payload,
+                        "signature": signature,
+                    },
+                )
+                if not created and event.status == WebhookEvent.Status.PROCESSED:
+                    return Response({"received": True, "deduplicated": True})
+                event.status = WebhookEvent.Status.RECEIVED
+                self.handle(payload, event)
+                if event.status == WebhookEvent.Status.RECEIVED:
+                    event.status = WebhookEvent.Status.PROCESSED
+                event.processed_at = timezone.now()
+                event.save(update_fields=["status", "processed_at"])
+        except Exception:
+            with transaction.atomic():
+                event, _ = WebhookEvent.objects.get_or_create(
+                    event_id=event_id,
+                    defaults={
+                        "type": payload.get("type", ""),
+                        "payload": payload,
+                        "signature": signature,
+                    },
+                )
+                event.status = WebhookEvent.Status.FAILED
+                event.save(update_fields=["status"])
+            raise
         return Response({"received": True})
 
     def handle(self, payload, event):  # pragma: no cover

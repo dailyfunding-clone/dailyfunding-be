@@ -62,8 +62,9 @@ def execute_loan(product: Product) -> Product:
         ref_type="product",
         ref_id=product.id,
     )
-    product.status = Product.Status.REPAYING
+    product.transition(Product.Status.EXECUTED)
     product.executed_at = timezone.now()
+    product.transition(Product.Status.REPAYING)
     product.save(update_fields=["status", "executed_at"])
 
     # 실행일 기준으로 지급일 확정

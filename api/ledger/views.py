@@ -112,15 +112,21 @@ class DepositHistoryView(APIView):
         account = services.deposit_acc(request.user.id)
         view = request.query_params.get("view")
         qs = LedgerEntry.objects.filter(account=account)
-        if view == "withholding":
-            # 원천징수영수증: 상환 분개 중 세금 원천 내역
-            qs = LedgerEntry.objects.filter(
-                account=services.PAYABLE_TAX, kind=LedgerEntry.Kind.REPAY
-            )
-        elif view == "platform_fee":
-            qs = LedgerEntry.objects.filter(
-                account=services.REVENUE_FEE
-            )
+        if view in ("withholding", "platform_fee"):
+            # 원천징수영수증/수수료: 본인 분개 그룹으로 스코프
+            user_groups = LedgerEntry.objects.filter(
+                account__in=[account, services.hold_acc(request.user.id)]
+            ).values("group_id")
+            if view == "withholding":
+                qs = LedgerEntry.objects.filter(
+                    account=services.PAYABLE_TAX,
+                    kind=LedgerEntry.Kind.REPAY,
+                    group_id__in=user_groups,
+                )
+            else:
+                qs = LedgerEntry.objects.filter(
+                    account=services.REVENUE_FEE, group_id__in=user_groups
+                )
         else:
             kind = request.query_params.get("kind")
             if kind:

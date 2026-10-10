@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import AllowAny
@@ -133,12 +134,6 @@ class PinLoginView(APIView):
 class LogoutView(APIView):
     @extend_schema(request=None, responses=OkResponseSerializer)
     def post(self, request):
-        request.user.pin_hash = ""
-        request.user.pin_failures = 0
-        request.user.pin_locked_at = None
-        request.user.save(
-            update_fields=["pin_hash", "pin_failures", "pin_locked_at"]
-        )
         raw = request.COOKIES.get(REFRESH_COOKIE)
         if raw:
             try:
@@ -160,6 +155,10 @@ class RefreshView(APIView):
             refresh = RefreshToken(raw)
         except Exception:
             raise Unauthorized("refresh token invalid or expired")
+        try:
+            refresh.blacklist()
+        except Exception:
+            pass
         user = User.objects.filter(id=refresh["user_id"]).first()
         if user is None:
             raise Unauthorized("user not found")
@@ -169,8 +168,6 @@ class RefreshView(APIView):
 class IdentityVerifyView(APIView):
     """모의 본인인증 (F-AUTH-04). 서버가 CI를 발급한다."""
 
-    permission_classes = (AllowAny,)
-
     @extend_schema(
         request=IdentityVerifySerializer,
         responses=IdentityVerifyResponseSerializer,
@@ -178,18 +175,9 @@ class IdentityVerifyView(APIView):
     def post(self, request):
         s = IdentityVerifySerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        user = request.user if request.user.is_authenticated else None
-        if user is None:
-            # 가입 위저드 직후 비로그인 상태에서도 호출 가능하도록 email 지원
-            email = request.data.get("email")
-            if not email:
-                raise Unauthorized("login or email required")
-            user = User.objects.filter(email=email).first()
-            if user is None:
-                raise NotFound("user not found")
         d = s.validated_data
         identity = services.verify_identity(
-            user, d["carrier"], d["name"], d["birth"], d["phone"]
+            request.user, d["carrier"], d["name"], d["birth"], d["phone"]
         )
         return Response({"ci": identity.ci, "verified": True})
 
@@ -306,7 +294,9 @@ class PasswordResetRequestView(APIView):
         user = User.objects.filter(email=s.validated_data["email"]).first()
         dev_token = None
         if user is not None:
-            dev_token = services.issue_password_reset_token(user).token
+            token = services.issue_password_reset_token(user).token
+            if settings.DEBUG:
+                dev_token = token
         return Response({"sent": True, "dev_token": dev_token})
 
 

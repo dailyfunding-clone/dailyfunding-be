@@ -1,6 +1,8 @@
 import random
 from datetime import date, datetime
 
+from django.db import IntegrityError, models, transaction
+from django.db.utils import DataError
 from django.utils import timezone
 from drf_spectacular.utils import (
     OpenApiParameter,
@@ -493,7 +495,9 @@ class LoanApplicationDetailView(APIView):
         app = LoanApplication.objects.filter(pk=pk).first()
         if app is None:
             raise NotFound()
-        action = request.data.get("action")
+        s = LoanDecisionSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        action = s.validated_data["action"]
         if app.status != LoanApplication.Status.SUBMITTED:
             raise StateConflict("already decided")
         if action == "reject":
@@ -501,7 +505,7 @@ class LoanApplicationDetailView(APIView):
         elif action == "approve":
             from django.db.models import Max
 
-            d = request.data
+            d = s.validated_data
             year = timezone.now().year
             seq = (Product.objects.aggregate(m=Max("id"))["m"] or 0) + 1
             product = Product.objects.create(
@@ -686,6 +690,26 @@ def _free_form(name, fields):
     )
 
 
+def _validate_crud_payload(model, data):
+    for f, v in data.items():
+        field = model._meta.get_field(f)
+        if f == "month" and not (isinstance(v, int) and 1 <= v <= 12):
+            raise ValidationFailed("month must be an integer between 1 and 12")
+        if isinstance(field, models.JSONField):
+            if field.default is list and not isinstance(v, list):
+                raise ValidationFailed(f"{f} must be an array")
+            if field.default is dict and not isinstance(v, dict):
+                raise ValidationFailed(f"{f} must be an object")
+
+
+def _save_crud(fn):
+    try:
+        with transaction.atomic():
+            return fn()
+    except (IntegrityError, DataError) as e:
+        raise ValidationFailed("invalid or duplicate data") from e
+
+
 def _crud_list_create(model, fields, name):
     req = _free_form(f"Admin{name}Upsert", fields)
     resp = inline_serializer(
@@ -710,7 +734,8 @@ def _crud_list_create(model, fields, name):
         @extend_schema(request=req, responses={201: created})
         def post(self, request):
             data = {f: request.data.get(f) for f in fields if f in request.data}
-            obj = model.objects.create(**data)
+            _validate_crud_payload(model, data)
+            obj = _save_crud(lambda: model.objects.create(**data))
             return Response({"id": obj.id}, status=201)
 
     V.__name__ = f"Admin{name}ListCreateView"
@@ -735,10 +760,11 @@ def _crud_detail(model, fields, name):
         @extend_schema(request=req, responses=resp)
         def patch(self, request, pk):
             obj = self._get(pk)
-            for f in fields:
-                if f in request.data:
-                    setattr(obj, f, request.data[f])
-            obj.save()
+            data = {f: request.data[f] for f in fields if f in request.data}
+            _validate_crud_payload(model, data)
+            for f, v in data.items():
+                setattr(obj, f, v)
+            _save_crud(obj.save)
             return Response({"id": obj.id})
 
         @extend_schema(responses={204: None})

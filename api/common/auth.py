@@ -29,8 +29,6 @@ def set_auth_cookies(
     response: Response, user, persistent: bool = True
 ) -> Response:
     refresh = RefreshToken.for_user(user)
-    response.data["access_token"] = str(refresh.access_token)
-    response.data["refresh_token"] = str(refresh)
     access_max_age = (
         int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
         if persistent
