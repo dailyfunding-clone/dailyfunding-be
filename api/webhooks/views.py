@@ -130,6 +130,24 @@ class BankDepositWebhookView(_BankWebhookView):
             event.status = WebhookEvent.Status.HELD
             return
 
+        already_credited = DepositIntent.objects.filter(
+            user=va.user,
+            amount=amount,
+            sender_name=sender,
+            status=DepositIntent.Status.CREDITED,
+        ).exists()
+        already_held = (
+            sender != va.holder
+            and DepositIntent.objects.filter(
+                user=va.user,
+                amount=amount,
+                status=DepositIntent.Status.HELD,
+                held_reason__contains=sender,
+            ).exists()
+        )
+        if already_credited or already_held:
+            return
+
         pending = (
             DepositIntent.objects.select_for_update()
             .filter(

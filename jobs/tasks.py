@@ -36,25 +36,8 @@ def repay_daily(run_date=None):
     overdue_count = 0
 
     with transaction.atomic():
-        # 1) 지급일 경과 미지급 → 연체 전환
-        overdue_qs = RepaymentSchedule.objects.select_for_update().filter(
-            status=RepaymentSchedule.Status.SCHEDULED, due_date__lt=run_date
-        )
-        for s in overdue_qs:
-            s.status = RepaymentSchedule.Status.OVERDUE
-            s.save(update_fields=["status"])
-            overdue_count += 1
-        if overdue_count:
-            Investment.objects.filter(
-                schedules__status=RepaymentSchedule.Status.OVERDUE,
-                status=Investment.Status.ACTIVE,
-            ).distinct().update(status=Investment.Status.OVERDUE)
-            Product.objects.filter(
-                investments__status=Investment.Status.OVERDUE,
-                status=Product.Status.REPAYING,
-            ).distinct().update(status=Product.Status.OVERDUE)
-
-        # 2) 지급: due_date <= run_date && 미지급 (연체 표시분 추집 포함)
+        # 1) 지급: 상환 주기(REPAYING) 상품만. OVERDUE 상품의 미지급 회차도
+        # 추집해 연체 상태가 영구 고착되지 않게 한다.
         due_qs = (
             RepaymentSchedule.objects.select_for_update()
             .filter(
@@ -63,6 +46,14 @@ def repay_daily(run_date=None):
                     RepaymentSchedule.Status.OVERDUE,
                 ],
                 due_date__lte=run_date,
+                investment__status__in=[
+                    Investment.Status.ACTIVE,
+                    Investment.Status.OVERDUE,
+                ],
+                investment__product__status__in=[
+                    Product.Status.REPAYING,
+                    Product.Status.OVERDUE,
+                ],
             )
             .select_related("investment", "investment__user", "investment__product")
         )
@@ -96,6 +87,31 @@ def repay_daily(run_date=None):
                 f"세후 {net:,}원이 예치금에 입금되었습니다.",
                 ref_id=s.id,
             )
+
+        # 2) 연체 표기: 이번 런 지급 이후에도 남은 기한 경과 미지급 회차만.
+        # 지급과 표기를 분리해 같은 런에서 지급 가능한 회차가 먼저 overdue로
+        # 찍히지 않는다.
+        overdue_qs = RepaymentSchedule.objects.select_for_update().filter(
+            status=RepaymentSchedule.Status.SCHEDULED,
+            due_date__lt=run_date,
+            investment__product__status__in=[
+                Product.Status.REPAYING,
+                Product.Status.OVERDUE,
+            ],
+        )
+        for s in overdue_qs:
+            s.status = RepaymentSchedule.Status.OVERDUE
+            s.save(update_fields=["status"])
+            overdue_count += 1
+        if overdue_count:
+            Investment.objects.filter(
+                schedules__status=RepaymentSchedule.Status.OVERDUE,
+                status=Investment.Status.ACTIVE,
+            ).distinct().update(status=Investment.Status.OVERDUE)
+            Product.objects.filter(
+                investments__status=Investment.Status.OVERDUE,
+                status=Product.Status.REPAYING,
+            ).distinct().update(status=Product.Status.OVERDUE)
 
         # 3) 투자·상품 종결: 모든 회차 지급 완료 시
         for inv in Investment.objects.filter(

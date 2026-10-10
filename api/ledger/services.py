@@ -121,7 +121,11 @@ def monthly_withdraw_count(user_id, when=None):
     return Withdrawal.objects.filter(
         user_id=user_id,
         created_at__gte=month_start,
-        status=Withdrawal.Status.COMPLETED,
+        status__in=[
+            Withdrawal.Status.REQUESTED,
+            Withdrawal.Status.PROCESSING,
+            Withdrawal.Status.COMPLETED,
+        ],
     ).count()
 
 

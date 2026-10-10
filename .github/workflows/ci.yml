@@ -35,6 +35,9 @@ jobs:
       DB_PASSWORD: dailyfunding
       CELERY_EAGER: "1"
       ALLOWED_HOSTS: "*"
+      SECRET_KEY: ci-secret-key-not-for-production
+      BANK_WEBHOOK_SECRET: ci-bank-secret
+      DEBUG: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

@@ -75,19 +75,7 @@ class SignupView(APIView):
             d["member_type"],
             d.get("business_number", ""),
         )
-        referrer_email = d.get("referrer_email")
-        if referrer_email:
-            referrer = User.objects.filter(email=referrer_email).first()
-            if referrer:
-                from api.ledger.services import grant_points
-
-                grant_points(
-                    referrer,
-                    2000,
-                    ref_type="referral",
-                    ref_id=str(user.id),
-                    memo="친구 추천",
-                )
+        services.grant_referral_reward(d.get("referrer_email"), user)
         return Response(
             {
                 "user_id": user.id,
