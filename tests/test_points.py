@@ -61,18 +61,25 @@ def test_pin_lock_after_5_failures(api, user):
     api.post(
         "/api/auth/login", {"email": user.email, "password": PASSWORD}, format="json"
     )
+    csrf = {"HTTP_X_CSRF_TOKEN": api.cookies["csrf"].value}
     api.force_authenticate(user=user)
-    api.post("/api/auth/pin", {"pin": "123456"}, format="json")
+    api.post("/api/auth/pin", {"pin": "123456"}, format="json", **csrf)
 
     for _ in range(4):
-        r = api.post("/api/auth/login/pin", {"pin": "999999"}, format="json")
+        r = api.post(
+            "/api/auth/login/pin", {"pin": "999999"}, format="json", **csrf
+        )
         assert r.status_code == 401
-    r = api.post("/api/auth/login/pin", {"pin": "999999"}, format="json")
+    r = api.post(
+        "/api/auth/login/pin", {"pin": "999999"}, format="json", **csrf
+    )
     assert r.status_code == 422
     assert r.json()["code"] == "PIN_LOCKED"
 
     # 잠금 후 올바른 PIN도 거부
-    r = api.post("/api/auth/login/pin", {"pin": "123456"}, format="json")
+    r = api.post(
+        "/api/auth/login/pin", {"pin": "123456"}, format="json", **csrf
+    )
     assert r.status_code == 422
 
 

@@ -370,7 +370,10 @@ class TimeAdvanceView(APIView):
 class GradeRequestListView(APIView):
     permission_classes = (IsStaff,)
 
-    @extend_schema(responses=AdminGradeRequestListSerializer)
+    @extend_schema(
+        parameters=[OpenApiParameter("status", str)],
+        responses=AdminGradeRequestListSerializer,
+    )
     def get(self, request):
         qs = GradeRequest.objects.select_related("user").order_by("-id")
         if request.query_params.get("status"):
@@ -459,7 +462,10 @@ class DepositHoldDetailView(APIView):
 class LoanApplicationListView(APIView):
     permission_classes = (IsStaff,)
 
-    @extend_schema(responses=AdminLoanApplicationListSerializer)
+    @extend_schema(
+        parameters=[OpenApiParameter("status", str)],
+        responses=AdminLoanApplicationListSerializer,
+    )
     def get(self, request):
         qs = LoanApplication.objects.all().order_by("-id")
         if request.query_params.get("status"):

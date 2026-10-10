@@ -1,4 +1,5 @@
 import json
+import threading
 from datetime import date
 
 import psycopg
@@ -6,6 +7,7 @@ from django.db import connections
 from django.http import StreamingHttpResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
+from rest_framework.exceptions import Throttled
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -44,6 +46,27 @@ def _parse_ids(raw):
 
 HEARTBEAT_SEC = 15
 NOTIFY_CHANNEL = "product_progress"
+STREAM_MAX_PER_IP = 3
+
+_stream_lock = threading.Lock()
+_stream_counts = {}
+
+
+def _acquire_stream(ip):
+    with _stream_lock:
+        if _stream_counts.get(ip, 0) >= STREAM_MAX_PER_IP:
+            return False
+        _stream_counts[ip] = _stream_counts.get(ip, 0) + 1
+        return True
+
+
+def _release_stream(ip):
+    with _stream_lock:
+        left = _stream_counts.get(ip, 0) - 1
+        if left > 0:
+            _stream_counts[ip] = left
+        else:
+            _stream_counts.pop(ip, None)
 
 
 def _listen_connection():
@@ -132,11 +155,17 @@ class ProductStreamView(APIView):
                 raise ValueError
         except ValueError:
             raise ValidationFailed("Invalid Last-Event-ID")
-        return StreamingHttpResponse(
+        ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
+        ip = ip or request.META.get("REMOTE_ADDR", "")
+        if not _acquire_stream(ip):
+            raise Throttled()
+        response = StreamingHttpResponse(
             progress_stream(ids, cursor),
             content_type="text/event-stream",
             headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
         )
+        response._resource_closers.append(lambda: _release_stream(ip))
+        return response
 
 
 class ProductListView(ListAPIView):

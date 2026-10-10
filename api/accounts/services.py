@@ -117,9 +117,31 @@ def register_pin(user, pin: str):
     if not (isinstance(pin, str) and len(pin) == 6 and pin.isdigit()):
         raise ValidationFailed("pin must be 6 digits", {"pin": ["6자리 숫자"]})
     user.pin_hash = make_password(pin)
-    user.pin_failures = 0
-    user.pin_locked_at = None
-    user.save(update_fields=["pin_hash", "pin_failures", "pin_locked_at"])
+    user.save(update_fields=["pin_hash"])
+
+
+def grant_referral_reward(referrer_email, new_user):
+    if not referrer_email or referrer_email.lower() == new_user.email.lower():
+        return False
+    referrer = User.objects.filter(email=referrer_email).first()
+    if referrer is None:
+        return False
+    from api.ledger.models import PointEntry
+    from api.ledger.services import grant_points
+
+    rewards = PointEntry.objects.filter(
+        user=referrer, kind=PointEntry.Kind.EARN, ref_type="referral"
+    ).count()
+    if rewards >= settings.REFERRAL_MAX_REWARDS:
+        return False
+    grant_points(
+        referrer,
+        2000,
+        ref_type="referral",
+        ref_id=str(new_user.id),
+        memo="친구 추천",
+    )
+    return True
 
 
 def check_pin(user, pin: str) -> bool:

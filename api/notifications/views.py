@@ -58,8 +58,29 @@ class DeviceView(APIView):
         return Response({"registered": True}, status=201)
 
 
+class NotificationSettingsGetSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField()
+
+
 class NotificationSettingsView(APIView):
-    """POST /api/notifications/settings — 카테고리별 ON/OFF."""
+    """GET/POST /api/notifications/settings — 알림 설정 조회·변경."""
+
+    @extend_schema(responses=NotificationSettingsGetSerializer)
+    def get(self, request):
+        setting, _ = NotificationSetting.objects.get_or_create(
+            user=request.user
+        )
+        return Response(
+            {
+                "enabled": any(
+                    [
+                        setting.new_product,
+                        setting.recruit_closed,
+                        setting.repayment,
+                    ]
+                )
+            }
+        )
 
     @extend_schema(
         request=NotifSettingSerializer,
