@@ -1,5 +1,7 @@
 import time
+import uuid
 
+from django.conf import settings
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import AllowAny
@@ -11,6 +13,11 @@ from api.common.exceptions import NotFound, ValidationFailed
 from api.ledger.models import DepositIntent, Withdrawal
 from mockbank import services
 from mockbank.models import WebhookDelivery
+
+
+def _require_debug():
+    if not settings.DEBUG:
+        raise NotFound()
 
 
 class DepositExecuteView(APIView):
@@ -26,6 +33,7 @@ class DepositExecuteView(APIView):
 
     @extend_schema(exclude=True)
     def post(self, request):
+        _require_debug()
         d = request.data
         delay_ms = int(d.get("delay_ms") or 0)
         if delay_ms:
@@ -61,6 +69,7 @@ class DepositExecuteView(APIView):
             "account_no": account_no,
             "sender_name": sender,
             "amount": amount,
+            "transfer_id": f"tx-{uuid.uuid4().hex[:20]}",
             "occurred_at": timezone.now().isoformat(),
         }
         if d.get("force_bad_signature"):
@@ -87,6 +96,7 @@ class TransferExecuteView(APIView):
 
     @extend_schema(exclude=True)
     def post(self, request):
+        _require_debug()
         wd = Withdrawal.objects.filter(id=request.data.get("withdrawal_id")).first()
         if wd is None:
             raise NotFound("withdrawal not found")
@@ -119,6 +129,7 @@ class DeliveryListView(APIView):
 
     @extend_schema(exclude=True)
     def get(self, request):
+        _require_debug()
         rows = WebhookDelivery.objects.order_by("-id")[:100]
         return Response(
             {

@@ -44,7 +44,7 @@ class _BankWebhookView(APIView):
     permission_classes = (AllowAny,)
     authentication_classes = ()
 
-    event_type = ""
+    event_types = frozenset()
 
     @extend_schema(
         request=inline_serializer(
@@ -72,25 +72,44 @@ class _BankWebhookView(APIView):
         event_id = payload.get("event_id", "")
         if not event_id:
             raise ValidationFailed("event_id required")
+        if payload.get("type") not in self.event_types:
+            raise ValidationFailed(
+                "unsupported event type", {"type": payload.get("type")}
+            )
 
-        # 멱등: event_id 유니크, 재수신 시 200만 반환
-        event, created = WebhookEvent.objects.get_or_create(
-            event_id=event_id,
-            defaults={
-                "type": payload.get("type", ""),
-                "payload": payload,
-                "signature": signature,
-            },
-        )
-        if not created:
-            return Response({"received": True, "deduplicated": True})
-
-        with transaction.atomic():
-            self.handle(payload, event)
-            if event.status == WebhookEvent.Status.RECEIVED:
-                event.status = WebhookEvent.Status.PROCESSED
-            event.processed_at = timezone.now()
-            event.save(update_fields=["status", "processed_at"])
+        # 멱등: event_id 유니크. PROCESSED만 재수신 무시,
+        # FAILED/HELD/RECEIVED는 같은 트랜잭션에서 재처리.
+        try:
+            with transaction.atomic():
+                event, created = WebhookEvent.objects.select_for_update().get_or_create(
+                    event_id=event_id,
+                    defaults={
+                        "type": payload.get("type", ""),
+                        "payload": payload,
+                        "signature": signature,
+                    },
+                )
+                if not created and event.status == WebhookEvent.Status.PROCESSED:
+                    return Response({"received": True, "deduplicated": True})
+                event.status = WebhookEvent.Status.RECEIVED
+                self.handle(payload, event)
+                if event.status == WebhookEvent.Status.RECEIVED:
+                    event.status = WebhookEvent.Status.PROCESSED
+                event.processed_at = timezone.now()
+                event.save(update_fields=["status", "processed_at"])
+        except Exception:
+            with transaction.atomic():
+                event, _ = WebhookEvent.objects.get_or_create(
+                    event_id=event_id,
+                    defaults={
+                        "type": payload.get("type", ""),
+                        "payload": payload,
+                        "signature": signature,
+                    },
+                )
+                event.status = WebhookEvent.Status.FAILED
+                event.save(update_fields=["status"])
+            raise
         return Response({"received": True})
 
     def handle(self, payload, event):  # pragma: no cover
@@ -100,54 +119,102 @@ class _BankWebhookView(APIView):
 class BankDepositWebhookView(_BankWebhookView):
     """POST /api/webhooks/bank/deposit — 입금 완료 통지."""
 
+    event_types = frozenset({"deposit.completed"})
+
     def handle(self, payload, event):
         from api.accounts.models import VirtualAccount
 
         account_no = payload.get("account_no", "")
-        amount = int(payload.get("amount") or 0)
+        try:
+            amount = int(payload.get("amount"))
+        except (TypeError, ValueError):
+            raise ValidationFailed("amount must be integer")
         sender = payload.get("sender_name", "")
+        transfer_id = str(payload.get("transfer_id") or "")
 
         va = VirtualAccount.objects.filter(account_no=account_no).first()
         if va is None:
             event.status = WebhookEvent.Status.HELD
             return
 
-        # intent 매칭: 계좌 + 금액 + 예금주명
-        intent = (
+        if transfer_id and DepositIntent.objects.filter(
+            transfer_id=transfer_id
+        ).exists():
+            return
+
+        pending = (
             DepositIntent.objects.select_for_update()
             .filter(
                 user=va.user,
                 amount=amount,
                 status=DepositIntent.Status.PENDING,
             )
-            .order_by("id")
-            .first()
+            .order_by("created_at", "id")
         )
-        if intent is None:
-            intent = DepositIntent.objects.create(
+
+        # transfer_id 없는 페이로드만 (user,amount,sender) 휴리스틱 dedup —
+        # 매칭할 PENDING intent가 없을 때. transfer_id가 있으면 신규 이체는
+        # 같은 금액/예금주라도 별도 이체로 크레딧한다.
+        if sender != va.holder:
+            intent = pending.filter(sender_name=sender).first()
+            if (
+                intent is None
+                and not transfer_id
+                and DepositIntent.objects.filter(
+                    user=va.user,
+                    amount=amount,
+                    status=DepositIntent.Status.HELD,
+                    sender_name=sender,
+                ).exists()
+            ):
+                return
+            intent = intent or DepositIntent.objects.create(
                 id=DepositIntent.new_id(),
                 user=va.user,
                 amount=amount,
                 sender_name=sender,
                 status=DepositIntent.Status.HELD,
             )
-
-        if sender != va.holder:
             intent.status = DepositIntent.Status.HELD
             intent.held_reason = f"예금주명 불일치: {sender} != {va.holder}"
             intent.event_id = event.event_id
-            intent.save(update_fields=["status", "held_reason", "event_id"])
+            intent.transfer_id = transfer_id
+            intent.save(
+                update_fields=["status", "held_reason", "event_id", "transfer_id"]
+            )
             event.status = WebhookEvent.Status.HELD
             return
 
-        intent.sender_name = sender
+        # intent 매칭: 계좌 + 금액 + 신고된 예금주명 (가장 오래된 건부터)
+        intent = pending.filter(sender_name=sender).first()
+        if (
+            intent is None
+            and not transfer_id
+            and DepositIntent.objects.filter(
+                user=va.user,
+                amount=amount,
+                sender_name=sender,
+                status=DepositIntent.Status.CREDITED,
+            ).exists()
+        ):
+            return
+        if intent is None:
+            intent = DepositIntent.objects.create(
+                id=DepositIntent.new_id(),
+                user=va.user,
+                amount=amount,
+                sender_name=sender,
+            )
         intent.event_id = event.event_id
-        intent.save(update_fields=["sender_name", "event_id"])
+        intent.transfer_id = transfer_id
+        intent.save(update_fields=["event_id", "transfer_id"])
         ledger.credit_deposit(intent)
 
 
 class BankTransferWebhookView(_BankWebhookView):
     """POST /api/webhooks/bank/transfer — 출금 이체 결과."""
+
+    event_types = frozenset({"transfer.completed", "transfer.failed"})
 
     def handle(self, payload, event):
         wd = Withdrawal.objects.filter(id=payload.get("withdrawal_id")).first()
@@ -155,6 +222,9 @@ class BankTransferWebhookView(_BankWebhookView):
             event.status = WebhookEvent.Status.HELD
             return
         wd = Withdrawal.objects.select_for_update().get(pk=wd.pk)
+        if wd.status == Withdrawal.Status.REQUESTED:
+            wd.status = Withdrawal.Status.PROCESSING
+            wd.save(update_fields=["status"])
         if payload.get("type") == "transfer.failed":
             ledger.fail_withdrawal(wd, payload.get("reason", ""))
         else:

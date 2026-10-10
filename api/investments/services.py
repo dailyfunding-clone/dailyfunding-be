@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from api.accounts.models import GRADE_LIMITS, REAL_ESTATE_TYPES, User
 from api.common.exceptions import (
+    ApiError,
     BorrowerLimitExceeded,
     GradeLimitExceeded,
     InsufficientDeposit,
@@ -131,6 +132,7 @@ def create_schedules(investment: Investment, product: Product, base_date):
 @transaction.atomic
 def place_investment(user: User, product_id: int, amount: int, use_points: int = 0):
     """단일 트랜잭션 + 상품 행 잠금으로 모집 잔액 경합을 직렬화한다."""
+    ledger.lock_user(user.id)
     product = Product.objects.select_for_update().filter(pk=product_id).first()
     if product is None:
         raise ValidationFailed("product not found", {"product_id": "invalid"})
@@ -140,11 +142,17 @@ def place_investment(user: User, product_id: int, amount: int, use_points: int =
 
     if not suitability_valid(user):
         raise SuitabilityRequired()
+    if not user.identity_verified:
+        raise ValidationFailed("identity verification required first")
 
     if amount <= 0:
         raise ValidationFailed("amount must be positive")
     if use_points < 0:
         raise ValidationFailed("use_points must be >= 0")
+    if use_points > amount:
+        raise ValidationFailed(
+            "use_points exceeds amount", {"amount": amount}
+        )
 
     limits = GRADE_LIMITS[user.grade]
     total, real_estate, by_borrower = invested_sums(user)
@@ -307,7 +315,7 @@ def convert_reservations(product: Product):
             res.status = Reservation.Status.CONVERTED
             res.converted_at = timezone.now()
             converted += 1
-        except Exception:
+        except ApiError:
             # 모집 미달·한도 초과 등 → 원리금 상환으로 폴백
             res.status = Reservation.Status.REFUNDED
             refunded += 1

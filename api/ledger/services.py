@@ -15,7 +15,7 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Sum
 from django.utils import timezone
 
@@ -76,6 +76,12 @@ def balance(account):
     )
 
 
+def lock_user(user_id):
+    """pg_advisory_xact_lock(hashtext(user_id))로 사용자 단위 직렬화."""
+    with connection.cursor() as c:
+        c.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", [str(user_id)])
+
+
 def deposit_balance(user_id):
     return balance(deposit_acc(user_id))
 
@@ -91,8 +97,10 @@ def withdrawable(user_id):
 # ---- 입금 ----
 
 
+@transaction.atomic
 def credit_deposit(intent: DepositIntent):
     """입금 확정 분개: 청산(은행) → 사용자 예치금."""
+    lock_user(intent.user_id)
     post(
         LedgerEntry.Kind.DEPOSIT,
         [(CLEARING_BANK, -intent.amount), (deposit_acc(intent.user_id), intent.amount)],
@@ -111,7 +119,13 @@ def monthly_withdraw_count(user_id, when=None):
     when = when or timezone.now()
     month_start = when.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     return Withdrawal.objects.filter(
-        user_id=user_id, created_at__gte=month_start
+        user_id=user_id,
+        created_at__gte=month_start,
+        status__in=[
+            Withdrawal.Status.REQUESTED,
+            Withdrawal.Status.PROCESSING,
+            Withdrawal.Status.COMPLETED,
+        ],
     ).count()
 
 
@@ -132,9 +146,12 @@ def daily_withdraw_amount(user_id, when=None):
     )
 
 
+@transaction.atomic
 def create_withdrawal(user, amount):
     """출금 요청: 수수료 계산 → 예치금 홀드 분개 → requested."""
     from django.conf import settings as s
+
+    lock_user(user.id)
 
     fee = 0
     if monthly_withdraw_count(user.id) >= s.WITHDRAW_FREE_COUNT:

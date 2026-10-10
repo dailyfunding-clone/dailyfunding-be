@@ -1,3 +1,5 @@
+from django.db import IntegrityError
+from django.db.models import Prefetch
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework.generics import ListAPIView
@@ -50,8 +52,11 @@ class InvestmentListCreateView(APIView):
             qs = qs.filter(status=request.query_params["status"])
         if request.query_params.get("type"):
             qs = qs.filter(product__type=request.query_params["type"])
-        page = int(request.query_params.get("page", 1))
-        size = min(int(request.query_params.get("page_size", 20)), 100)
+        try:
+            page = int(request.query_params.get("page", 1))
+            size = min(int(request.query_params.get("page_size", 20)), 100)
+        except ValueError:
+            raise ValidationFailed("page and page_size must be integers")
         total = qs.count()
         rows = qs[(page - 1) * size : page * size]
         return Response(
@@ -89,6 +94,7 @@ class InvestmentListCreateView(APIView):
             raise ValidationFailed("confirm must be '네'", {"confirm": d["confirm"]})
 
         def handler():
+            require_reauth(request)
             investment, rows = services.place_investment(
                 request.user, d["product_id"], d["amount"], d.get("use_points", 0)
             )
@@ -230,24 +236,32 @@ class ReservationEligibleView(APIView):
     @extend_schema(responses=ReservationEligibleResponseSerializer)
     def get(self, request):
         soon = timezone.now().date() + timezone.timedelta(days=45)
-        invs = (
+        invs = list(
             Investment.objects.filter(
                 user=request.user, status=Investment.Status.ACTIVE
             )
             .select_related("product")
-            .prefetch_related("schedules")
+            .prefetch_related(
+                Prefetch(
+                    "schedules",
+                    queryset=RepaymentSchedule.objects.order_by("-seq"),
+                    to_attr="latest_schedules",
+                )
+            )
+        )
+        refi_product_ids = set(
+            Product.objects.filter(
+                refinance_of_id__in=[inv.product_id for inv in invs],
+                status__in=[Product.Status.SCHEDULED, Product.Status.RECRUITING],
+            ).values_list("refinance_of_id", flat=True)
         )
         results = []
         for inv in invs:
-            last = inv.schedules.order_by("-seq").first()
+            last = inv.latest_schedules[0] if inv.latest_schedules else None
             if last is None or last.status != RepaymentSchedule.Status.SCHEDULED:
                 continue
             if last.due_date > soon:
                 continue
-            refinancing = Product.objects.filter(
-                refinance_of=inv.product,
-                status__in=[Product.Status.SCHEDULED, Product.Status.RECRUITING],
-            ).exists()
             results.append(
                 {
                     "investment_id": inv.id,
@@ -255,7 +269,7 @@ class ReservationEligibleView(APIView):
                     "product_name": inv.product.name,
                     "amount": inv.amount,
                     "maturity_date": last.due_date,
-                    "refinance_open": refinancing,
+                    "refinance_open": inv.product_id in refi_product_ids,
                 }
             )
         return Response({"results": results})
@@ -302,11 +316,10 @@ class ReservationListCreateView(APIView):
             raise ValidationFailed(
                 "amount exceeds invested principal", {"amount": inv.amount}
             )
-        if Reservation.objects.filter(
-            investment=inv, status=Reservation.Status.RESERVED
-        ).exists():
+        try:
+            res = Reservation.objects.create(investment=inv, amount=amount)
+        except IntegrityError:
             raise StateConflict("reservation already exists")
-        res = Reservation.objects.create(investment=inv, amount=amount)
         return Response(
             {"id": res.id, "status": res.status, "amount": res.amount}, status=201
         )

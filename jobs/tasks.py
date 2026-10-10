@@ -4,14 +4,14 @@ from datetime import date, datetime
 
 from celery import shared_task
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Max, Sum
 from django.utils import timezone
 
 from api.investments.models import Investment, RepaymentSchedule
 from api.ledger import services as ledger
 from api.ledger.models import LedgerEntry
 from api.notifications.models import Notification, notify
-from api.products.models import Product
+from api.products.models import Product, ProductProgress
 from jobs.models import BatchRun, ReconcileReport
 
 logger = logging.getLogger(__name__)
@@ -36,28 +36,25 @@ def repay_daily(run_date=None):
     overdue_count = 0
 
     with transaction.atomic():
-        # 1) 지급일 경과 미지급 → 연체 전환
-        overdue_qs = RepaymentSchedule.objects.select_for_update().filter(
-            status=RepaymentSchedule.Status.SCHEDULED, due_date__lt=run_date
-        )
-        for s in overdue_qs:
-            s.status = RepaymentSchedule.Status.OVERDUE
-            s.save(update_fields=["status"])
-            overdue_count += 1
-        if overdue_count:
-            Investment.objects.filter(
-                schedules__status=RepaymentSchedule.Status.OVERDUE,
-                status=Investment.Status.ACTIVE,
-            ).distinct().update(status=Investment.Status.OVERDUE)
-            Product.objects.filter(
-                investments__status=Investment.Status.OVERDUE,
-                status=Product.Status.REPAYING,
-            ).distinct().update(status=Product.Status.OVERDUE)
-
-        # 2) 당일 지급: due_date == run_date && scheduled
+        # 1) 지급: 상환 주기(REPAYING) 상품만. OVERDUE 상품의 미지급 회차도
+        # 추집해 연체 상태가 영구 고착되지 않게 한다.
         due_qs = (
             RepaymentSchedule.objects.select_for_update()
-            .filter(status=RepaymentSchedule.Status.SCHEDULED, due_date=run_date)
+            .filter(
+                status__in=[
+                    RepaymentSchedule.Status.SCHEDULED,
+                    RepaymentSchedule.Status.OVERDUE,
+                ],
+                due_date__lte=run_date,
+                investment__status__in=[
+                    Investment.Status.ACTIVE,
+                    Investment.Status.OVERDUE,
+                ],
+                investment__product__status__in=[
+                    Product.Status.REPAYING,
+                    Product.Status.OVERDUE,
+                ],
+            )
             .select_related("investment", "investment__user", "investment__product")
         )
         for s in due_qs:
@@ -91,9 +88,38 @@ def repay_daily(run_date=None):
                 ref_id=s.id,
             )
 
+        # 2) 연체 표기: 이번 런 지급 이후에도 남은 기한 경과 미지급 회차만.
+        # 지급과 표기를 분리해 같은 런에서 지급 가능한 회차가 먼저 overdue로
+        # 찍히지 않는다.
+        overdue_qs = RepaymentSchedule.objects.select_for_update().filter(
+            status=RepaymentSchedule.Status.SCHEDULED,
+            due_date__lt=run_date,
+            investment__product__status__in=[
+                Product.Status.REPAYING,
+                Product.Status.OVERDUE,
+            ],
+            investment__status__in=[
+                Investment.Status.ACTIVE,
+                Investment.Status.OVERDUE,
+            ],
+        )
+        for s in overdue_qs:
+            s.status = RepaymentSchedule.Status.OVERDUE
+            s.save(update_fields=["status"])
+            overdue_count += 1
+        if overdue_count:
+            Investment.objects.filter(
+                schedules__status=RepaymentSchedule.Status.OVERDUE,
+                status=Investment.Status.ACTIVE,
+            ).distinct().update(status=Investment.Status.OVERDUE)
+            Product.objects.filter(
+                investments__status=Investment.Status.OVERDUE,
+                status=Product.Status.REPAYING,
+            ).distinct().update(status=Product.Status.OVERDUE)
+
         # 3) 투자·상품 종결: 모든 회차 지급 완료 시
         for inv in Investment.objects.filter(
-            schedules__due_date=run_date, status__in=[
+            schedules__due_date__lte=run_date, status__in=[
                 Investment.Status.ACTIVE, Investment.Status.OVERDUE
             ]
         ).distinct():
@@ -155,6 +181,24 @@ def reconcile_ledger(run_date=None):
     ):
         if acc["total"] < 0:
             diffs.append({"check": "non_negative", **acc})
+
+    # 차입자 계정: 이자는 차주 부담분이라 완납 시 -이자총액까지 음수가 정상.
+    # 하한 미만으로 내려간 경우만 이상으로 본다.
+    interest_by_product = {
+        r["investment__product_id"]: r["s"]
+        for r in RepaymentSchedule.objects.values(
+            "investment__product_id"
+        ).annotate(s=Sum("interest"))
+    }
+    for acc in (
+        LedgerEntry.objects.values("account")
+        .annotate(total=Sum("amount"))
+        .filter(account__regex=r"^borrower:")
+    ):
+        product_id = int(acc["account"].split(":", 1)[1])
+        floor = -(interest_by_product.get(product_id) or 0)
+        if acc["total"] < floor:
+            diffs.append({"check": "non_negative", "floor": floor, **acc})
 
     # 3) 투자별 스케줄 원금 합계 = 투자금
     for inv in Investment.objects.exclude(status=Investment.Status.CANCELLED):
@@ -235,6 +279,40 @@ def retry_webhooks():
         deliver(d)
         retried += 1
     return {"retried": retried}
+
+
+@shared_task(name="jobs.tasks.purge_idempotency_records")
+def purge_idempotency_records():
+    """idempotency.purge: TTL(기본 24h) 경과 멱등 레코드 삭제."""
+    from django.conf import settings
+
+    from api.ledger.models import IdempotencyRecord
+
+    cutoff = timezone.now() - timezone.timedelta(
+        hours=settings.IDEMPOTENCY_TTL_HOURS
+    )
+    deleted, _ = IdempotencyRecord.objects.filter(
+        created_at__lt=cutoff
+    ).delete()
+    return {"deleted": deleted}
+
+
+@shared_task(name="jobs.tasks.purge_product_progress")
+def purge_product_progress():
+    """productprogress.purge: 24h 경과 진행 이벤트 삭제. 상품별 최신 1건은
+    스트림 스냅샷용으로 항상 유지."""
+    cutoff = timezone.now() - timezone.timedelta(hours=24)
+    latest = (
+        ProductProgress.objects.values("product_id")
+        .annotate(latest_id=Max("id"))
+        .values("latest_id")
+    )
+    deleted, _ = (
+        ProductProgress.objects.filter(created_at__lt=cutoff)
+        .exclude(id__in=latest)
+        .delete()
+    )
+    return {"deleted": deleted}
 
 
 @shared_task(name="jobs.tasks.convert_reservations")

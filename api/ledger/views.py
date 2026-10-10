@@ -1,5 +1,5 @@
 import csv
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.http import HttpResponse
 from django.utils import timezone
@@ -29,6 +29,13 @@ from api.ledger.serializers import (
     WithdrawResponseSerializer,
     WithdrawSerializer,
 )
+
+
+def _parse_date_param(value, param):
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ValidationFailed(f"invalid {param} date")
 
 
 class DepositAccountView(APIView):
@@ -84,11 +91,11 @@ class WithdrawView(APIView):
         responses={202: WithdrawResponseSerializer},
     )
     def post(self, request):
-        require_reauth(request)
         s = WithdrawSerializer(data=request.data)
         s.is_valid(raise_exception=True)
 
         def handler():
+            require_reauth(request)
             amount = s.validated_data.get("amount")
             if s.validated_data.get("all"):
                 amount = services.withdrawable(request.user.id)
@@ -112,15 +119,21 @@ class DepositHistoryView(APIView):
         account = services.deposit_acc(request.user.id)
         view = request.query_params.get("view")
         qs = LedgerEntry.objects.filter(account=account)
-        if view == "withholding":
-            # 원천징수영수증: 상환 분개 중 세금 원천 내역
-            qs = LedgerEntry.objects.filter(
-                account=services.PAYABLE_TAX, kind=LedgerEntry.Kind.REPAY
-            )
-        elif view == "platform_fee":
-            qs = LedgerEntry.objects.filter(
-                account=services.REVENUE_FEE
-            )
+        if view in ("withholding", "platform_fee"):
+            # 원천징수영수증/수수료: 본인 분개 그룹으로 스코프
+            user_groups = LedgerEntry.objects.filter(
+                account__in=[account, services.hold_acc(request.user.id)]
+            ).values("group_id")
+            if view == "withholding":
+                qs = LedgerEntry.objects.filter(
+                    account=services.PAYABLE_TAX,
+                    kind=LedgerEntry.Kind.REPAY,
+                    group_id__in=user_groups,
+                )
+            else:
+                qs = LedgerEntry.objects.filter(
+                    account=services.REVENUE_FEE, group_id__in=user_groups
+                )
         else:
             kind = request.query_params.get("kind")
             if kind:
@@ -128,10 +141,15 @@ class DepositHistoryView(APIView):
         for param, lookup in (("from", "gte"), ("to", "lte")):
             val = request.query_params.get(param)
             if val:
-                qs = qs.filter(**{f"created_at__date__{lookup}": val})
+                qs = qs.filter(
+                    **{f"created_at__date__{lookup}": _parse_date_param(val, param)}
+                )
         cursor = request.query_params.get("cursor")
         if cursor:
-            qs = qs.filter(id__lt=int(cursor))
+            try:
+                qs = qs.filter(id__lt=int(cursor))
+            except ValueError:
+                raise ValidationFailed("invalid cursor")
         rows = list(qs.order_by("-id")[:100])
         next_cursor = str(rows[-1].id) if rows else None
         return Response(
@@ -233,7 +251,9 @@ class PointsHistoryView(APIView):
         for param, lookup in (("from", "gte"), ("to", "lte")):
             val = request.query_params.get(param)
             if val:
-                qs = qs.filter(**{f"created_at__date__{lookup}": val})
+                qs = qs.filter(
+                    **{f"created_at__date__{lookup}": _parse_date_param(val, param)}
+                )
         rows = qs.order_by("-id")[:500]
 
         if "text/csv" in request.headers.get("Accept", ""):

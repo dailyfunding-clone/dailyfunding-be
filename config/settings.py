@@ -2,6 +2,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -16,11 +17,20 @@ def env_bool(key, default=False):
     return env(key, "1" if default else "0").lower() in ("1", "true", "yes", "on")
 
 
-SECRET_KEY = env(
-    "SECRET_KEY", "dev-secret-key-change-me-32bytes-minimum!!"
-)
-DEBUG = env_bool("DEBUG", True)
-ALLOWED_HOSTS = env("ALLOWED_HOSTS", "*").split(",") if env("ALLOWED_HOSTS") else ["*"]
+def required_env(key):
+    value = env(key)
+    if not value:
+        raise ImproperlyConfigured(f"{key} environment variable is required")
+    return value
+
+
+SECRET_KEY = required_env("SECRET_KEY")
+DEBUG = env_bool("DEBUG", False)
+ALLOWED_HOSTS = [h.strip() for h in env("ALLOWED_HOSTS").split(",") if h.strip()]
+if not ALLOWED_HOSTS and not DEBUG:
+    raise ImproperlyConfigured(
+        "ALLOWED_HOSTS environment variable is required when DEBUG is off"
+    )
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -52,6 +62,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    "api.common.auth.CsrfDoubleSubmitMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -84,7 +95,7 @@ DATABASES = {
         "PASSWORD": env("DB_PASSWORD", "dailyfunding"),
         "HOST": env("DB_HOST", "127.0.0.1"),
         "PORT": env("DB_PORT", "5432"),
-        "CONN_MAX_AGE": 60,
+        "CONN_MAX_AGE": int(env("CONN_MAX_AGE", "0")),
         "TEST": {"NAME": "dailyfunding_test"},
     }
 }
@@ -116,6 +127,13 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "api.common.pagination.StandardPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_RATES": {
+        "auth": "20/min",
+        "pin": "10/min",
+        "app_code": "20/min",
+        "reset": "5/min",
+        "vitals": "120/min",
+    },
 }
 
 SIMPLE_JWT = {
@@ -132,10 +150,17 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
 }
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {"api.metrics": {"handlers": ["console"], "level": "INFO"}},
+}
+
 REDIS_URL = env("REDIS_URL", "redis://127.0.0.1:6379/0")
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
-CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_EAGER", True)
+CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_EAGER", False)
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_BEAT_SCHEDULE = {
     "repay-daily": {
@@ -154,11 +179,19 @@ CELERY_BEAT_SCHEDULE = {
         "task": "jobs.tasks.retry_webhooks",
         "schedule": 60,
     },
+    "idempotency-purge-hourly": {
+        "task": "jobs.tasks.purge_idempotency_records",
+        "schedule": 60 * 60,
+    },
+    "product-progress-purge-hourly": {
+        "task": "jobs.tasks.purge_product_progress",
+        "schedule": 60 * 60,
+    },
 }
 
 # mockbank -> API webhook channel
 MOCKBANK_API_BASE = env("MOCKBANK_API_BASE", "http://127.0.0.1:8000")
-BANK_WEBHOOK_SECRET = env("BANK_WEBHOOK_SECRET", "dev-bank-secret")
+BANK_WEBHOOK_SECRET = required_env("BANK_WEBHOOK_SECRET")
 BANK_WEBHOOK_TOLERANCE_SEC = 300
 MOCKBANK_CODE = "090"
 MOCKBANK_NAME = "모의은행"
@@ -170,4 +203,5 @@ WITHDRAW_FEE = 500
 DAILY_WITHDRAW_LIMIT = 50_000_000
 REAUTH_TOKEN_TTL_SEC = 600
 PIN_MAX_FAILURES = 5
+REFERRAL_MAX_REWARDS = 10
 IDEMPOTENCY_TTL_HOURS = 24

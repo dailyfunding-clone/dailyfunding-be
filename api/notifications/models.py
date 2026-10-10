@@ -45,19 +45,24 @@ class Notification(models.Model):
 
 def notify(user_ids, kind, title, body="", ref_id=""):
     """설정이 ON인 사용자에게 알림 레코드 생성."""
-    from django.contrib.auth import get_user_model
-
-    User = get_user_model()
+    user_ids = list(dict.fromkeys(user_ids))
     setting_field = {
         Notification.Kind.NEW_PRODUCT: "new_product",
         Notification.Kind.RECRUIT_CLOSED: "recruit_closed",
         Notification.Kind.REPAYMENT: "repayment",
     }.get(kind)
-    for uid in user_ids:
-        if setting_field:
-            setting = NotificationSetting.objects.filter(user_id=uid).first()
-            if setting and not getattr(setting, setting_field):
-                continue
-        Notification.objects.create(
-            user_id=uid, kind=kind, title=title, body=body, ref_id=str(ref_id)
+    if setting_field:
+        opted_out = set(
+            NotificationSetting.objects.filter(
+                user_id__in=user_ids, **{setting_field: False}
+            ).values_list("user_id", flat=True)
         )
+        user_ids = [uid for uid in user_ids if uid not in opted_out]
+    Notification.objects.bulk_create(
+        [
+            Notification(
+                user_id=uid, kind=kind, title=title, body=body, ref_id=str(ref_id)
+            )
+            for uid in user_ids
+        ]
+    )

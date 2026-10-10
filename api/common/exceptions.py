@@ -32,6 +32,12 @@ class IdempotencyKeyMismatch(ApiError):
     default_detail = "idempotency key reused with a different payload"
 
 
+class IdempotencyInProgress(ApiError):
+    status_code = status.HTTP_409_CONFLICT
+    default_code = "IDEMPOTENCY_IN_PROGRESS"
+    default_detail = "request with this key is still in progress"
+
+
 class Unauthorized(ApiError):
     status_code = status.HTTP_401_UNAUTHORIZED
     default_code = "UNAUTHORIZED"
@@ -144,6 +150,8 @@ def exception_handler(exc, context):
         code = "FORBIDDEN"
     elif response.status_code == 404:
         code = "NOT_FOUND"
+    elif response.status_code == 429:
+        code = "THROTTLED"
     detail = response.data
     message = detail.get("detail", "error") if isinstance(detail, dict) else "error"
     details = {k: v for k, v in detail.items() if k != "detail"} if isinstance(detail, dict) else {}

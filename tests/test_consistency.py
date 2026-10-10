@@ -169,7 +169,7 @@ def test_deposit_webhook_signature_and_dedup(api, user):
 
 @pytest.mark.django_db(transaction=True)
 def test_deposit_webhook_name_mismatch_holds(api, user):
-    """예금주명 불일치 → 보류 큐."""
+    """예금주명 불일치 → 별도 보류 큐. 정상 intent는 오염되지 않는다."""
     va = user.virtual_account
     intent = DepositIntent.objects.create(
         id=DepositIntent.new_id(),
@@ -181,7 +181,11 @@ def test_deposit_webhook_name_mismatch_holds(api, user):
     r = signed_post(api, "/api/webhooks/bank/deposit", payload)
     assert r.status_code == 200
     intent.refresh_from_db()
-    assert intent.status == DepositIntent.Status.HELD
+    assert intent.status == DepositIntent.Status.PENDING
+    held = DepositIntent.objects.get(
+        user=user, status=DepositIntent.Status.HELD
+    )
+    assert held.sender_name == "이상한사람"
     assert ledger.deposit_balance(user.id) == 0
 
 

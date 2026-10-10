@@ -1,4 +1,8 @@
+import hmac
+import secrets
+
 from django.conf import settings
+from django.http import JsonResponse
 from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -8,6 +12,36 @@ from api.common.exceptions import ReauthRequired
 
 ACCESS_COOKIE = "access"
 REFRESH_COOKIE = "refresh"
+CSRF_COOKIE = "csrf"
+CSRF_HEADER = "X-CSRF-Token"
+
+_SAFE_METHODS = ("GET", "HEAD", "OPTIONS", "TRACE")
+
+
+class CsrfDoubleSubmitMiddleware:
+    """Cookie-authenticated mutations must echo the csrf cookie in
+    X-CSRF-Token. Bearer-only requests carry no cookies and pass."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.method not in _SAFE_METHODS and (
+            request.COOKIES.get(ACCESS_COOKIE)
+            or request.COOKIES.get(REFRESH_COOKIE)
+        ):
+            cookie = request.COOKIES.get(CSRF_COOKIE, "")
+            header = request.headers.get(CSRF_HEADER, "")
+            if not cookie or not hmac.compare_digest(cookie, header):
+                return JsonResponse(
+                    {
+                        "code": "FORBIDDEN",
+                        "message": "CSRF token missing or invalid",
+                        "details": {},
+                    },
+                    status=403,
+                )
+        return self.get_response(request)
 
 
 class CookieJWTAuthentication(JWTAuthentication):
@@ -29,8 +63,6 @@ def set_auth_cookies(
     response: Response, user, persistent: bool = True
 ) -> Response:
     refresh = RefreshToken.for_user(user)
-    response.data["access_token"] = str(refresh.access_token)
-    response.data["refresh_token"] = str(refresh)
     access_max_age = (
         int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
         if persistent
@@ -41,11 +73,13 @@ def set_auth_cookies(
         if persistent
         else None
     )
+    secure = not settings.DEBUG
     response.set_cookie(
         ACCESS_COOKIE,
         str(refresh.access_token),
         httponly=True,
         samesite="Lax",
+        secure=secure,
         max_age=access_max_age,
     )
     response.set_cookie(
@@ -53,6 +87,15 @@ def set_auth_cookies(
         str(refresh),
         httponly=True,
         samesite="Lax",
+        secure=secure,
+        max_age=refresh_max_age,
+    )
+    response.set_cookie(
+        CSRF_COOKIE,
+        secrets.token_urlsafe(32),
+        httponly=False,
+        samesite="Lax",
+        secure=secure,
         max_age=refresh_max_age,
     )
     return response
@@ -61,6 +104,7 @@ def set_auth_cookies(
 def clear_auth_cookies(response: Response) -> Response:
     response.delete_cookie(ACCESS_COOKIE)
     response.delete_cookie(REFRESH_COOKIE)
+    response.delete_cookie(CSRF_COOKIE)
     return response
 
 

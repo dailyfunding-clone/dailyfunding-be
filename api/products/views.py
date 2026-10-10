@@ -1,6 +1,14 @@
+import json
 from datetime import date
 
+import psycopg
+import redis
+from django.conf import settings
+from django.db import connections
+from django.http import StreamingHttpResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework import serializers
+from rest_framework.exceptions import Throttled
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,13 +17,173 @@ from rest_framework.generics import ListAPIView
 from api.accounts.models import REAL_ESTATE_TYPES, GRADE_LIMITS
 from api.common.exceptions import NotFound, ValidationFailed
 from api.ledger import services as ledger
-from api.products.models import Product
+from api.products.models import Product, ProductProgress
 from api.products.schedule import schedule_summary
 from api.products.serializers import (
     ProductDetailSerializer,
     ProductListSerializer,
     SchedulePreviewSerializer,
 )
+
+
+class ProductProgressSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    raised_amount = serializers.IntegerField()
+    remaining = serializers.IntegerField()
+    status = serializers.ChoiceField(choices=Product.Status.choices)
+
+
+def _parse_ids(raw):
+    if raw is None:
+        return []
+    try:
+        ids = [int(value) for value in raw.split(",")]
+        if len(ids) > 100 or any(value <= 0 or value > 2**63 - 1 for value in ids):
+            raise ValueError
+    except ValueError:
+        raise ValidationFailed("invalid ids")
+    return ids
+
+
+HEARTBEAT_SEC = 15
+NOTIFY_CHANNEL = "product_progress"
+STREAM_MAX_PER_IP = 3
+STREAM_KEY_TTL_SEC = 60 * 60 * 24
+
+_stream_redis = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
+
+_ACQUIRE_LUA = """
+local c = redis.call('INCR', KEYS[1])
+if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+return c
+"""
+
+_RELEASE_LUA = """
+local c = redis.call('DECR', KEYS[1])
+if c <= 0 then redis.call('DEL', KEYS[1]) end
+return c
+"""
+
+_acquire_script = _stream_redis.register_script(_ACQUIRE_LUA)
+_release_script = _stream_redis.register_script(_RELEASE_LUA)
+
+
+def _stream_key(ip):
+    return f"df:sse:{ip}"
+
+
+def _acquire_stream(ip):
+    if _acquire_script(keys=[_stream_key(ip)], args=[STREAM_KEY_TTL_SEC]) > STREAM_MAX_PER_IP:
+        _release_stream(ip)
+        return False
+    return True
+
+
+def _release_stream(ip):
+    _release_script(keys=[_stream_key(ip)])
+
+
+def _listen_connection():
+    db = connections["default"].settings_dict
+    conn = psycopg.connect(
+        dbname=db["NAME"],
+        user=db["USER"],
+        password=db["PASSWORD"],
+        host=db["HOST"],
+        port=db["PORT"],
+        autocommit=True,
+    )
+    conn.execute(f"LISTEN {NOTIFY_CHANNEL}")
+    return conn
+
+
+def _await_notify(conn, ids, timeout):
+    for notify in conn.notifies(timeout=timeout):
+        try:
+            payload = json.loads(notify.payload)
+        except ValueError:
+            continue
+        if not ids or payload.get("product_id") in ids:
+            return True
+    return False
+
+
+def progress_stream(ids, cursor):
+    """SSE stream over PostgreSQL LISTEN/NOTIFY.
+
+    Sync worker model: each open stream pins one WSGI worker plus one
+    dedicated psycopg connection blocked in notifies(); disconnect is
+    detected on write failure and the connection is released in finally.
+    Event ids are commit-ordered: the DB trigger takes a global advisory
+    lock before inserting, so id > cursor never misses a late commit.
+    """
+    conn = _listen_connection()
+    try:
+        events = ProductProgress.objects.exclude(status=Product.Status.DRAFT).exclude(
+            product__status=Product.Status.DRAFT
+        )
+        if ids:
+            events = events.filter(product_id__in=ids)
+        pending = []
+        if cursor is None:
+            pending = sorted(events.order_by("product_id", "-id").distinct("product_id"), key=lambda event: event.id)
+            cursor = 0
+        fetch_more = True
+        while True:
+            if fetch_more and not pending:
+                pending = list(events.filter(id__gt=cursor).order_by("id")[:100])
+            for event in pending:
+                data = {"id": event.product_id, "raised_amount": event.raised_amount, "remaining": event.remaining, "status": event.status}
+                cursor = event.id
+                yield f"id: {cursor}\nevent: progress\ndata: {json.dumps(data)}\n\n"
+            fetch_more = len(pending) == 100
+            pending = []
+            if fetch_more:
+                continue
+            if _await_notify(conn, ids, HEARTBEAT_SEC):
+                fetch_more = True
+            else:
+                yield ": heartbeat\n\n"
+    finally:
+        conn.close()
+
+
+class ProductStreamView(APIView):
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("ids", str, description="Comma-separated positive product IDs (up to 100). Omit for all public products."),
+            OpenApiParameter("Last-Event-ID", int, location=OpenApiParameter.HEADER),
+        ],
+        responses={(200, "text/event-stream"): ProductProgressSerializer},
+    )
+    def get(self, request):
+        ids = _parse_ids(request.query_params.get("ids"))
+        cursor = request.headers.get("Last-Event-ID")
+        try:
+            cursor = int(cursor) if cursor is not None else None
+            if cursor is not None and not 0 <= cursor <= 2**63 - 1:
+                raise ValueError
+        except ValueError:
+            raise ValidationFailed("Invalid Last-Event-ID")
+        # X-Forwarded-For는 클라이언트가 위조 가능 — cap 회피 방지를 위해
+        # REMOTE_ADDR만 사용 (신뢰 프록시 도입 시 TRUSTED_PROXY 설정으로 확장)
+        ip = request.META.get("REMOTE_ADDR", "")
+        if not _acquire_stream(ip):
+            raise Throttled()
+        try:
+            response = StreamingHttpResponse(
+                progress_stream(ids, cursor),
+                content_type="text/event-stream",
+                headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+            )
+        except Exception:
+            _release_stream(ip)
+            raise
+        response._resource_closers.append(lambda: _release_stream(ip))
+        return response
 
 
 class ProductListView(ListAPIView):
@@ -27,6 +195,7 @@ class ProductListView(ListAPIView):
     @extend_schema(
         parameters=[
             OpenApiParameter("status", str),
+            OpenApiParameter("ids", str, description="Comma-separated positive product IDs (up to 100)."),
             OpenApiParameter("type", str),
             OpenApiParameter("min_rate", float),
             OpenApiParameter("max_rate", float),
@@ -42,18 +211,17 @@ class ProductListView(ListAPIView):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = Product.objects.all()
+        qs = Product.objects.exclude(status=Product.Status.DRAFT)
         p = self.request.query_params
+        ids = _parse_ids(p.get("ids"))
+        if ids:
+            qs = qs.filter(id__in=ids)
         status = p.get("status")
         if status:
             qs = qs.filter(status=status)
         elif p.get("include_closed") not in ("1", "true"):
             qs = qs.exclude(
-                status__in=[
-                    Product.Status.REPAID,
-                    Product.Status.LOSS,
-                    Product.Status.DRAFT,
-                ]
+                status__in=[Product.Status.REPAID, Product.Status.LOSS]
             )
         if p.get("type"):
             qs = qs.filter(type=p["type"])
@@ -79,21 +247,11 @@ class ProductListView(ListAPIView):
 
 def _my_block(user, product):
     """로그인 시 개인화 블록: 예치금·투자 가능액·한도 잔여."""
-    from api.investments.models import Investment
+    from api.investments.services import invested_sums
 
     limits = GRADE_LIMITS[user.grade]
-    active = Investment.objects.filter(
-        user=user, status__in=[Investment.Status.ACTIVE, Investment.Status.OVERDUE]
-    )
-    invested_total = sum(i.amount for i in active)
-    invested_re = sum(
-        i.amount for i in active if i.product.type in REAL_ESTATE_TYPES
-    )
-    same_borrower = sum(
-        i.amount
-        for i in active
-        if i.product.borrower_id == product.borrower_id
-    )
+    invested_total, invested_re, by_borrower = invested_sums(user)
+    same_borrower = by_borrower.get(product.borrower_id, 0)
 
     total_remaining = (
         None if limits["total"] is None else max(0, limits["total"] - invested_total)
@@ -142,17 +300,14 @@ class ProductDetailView(APIView):
 
     @extend_schema(responses=ProductDetailSerializer)
     def get(self, request, pk):
-        product = Product.objects.filter(pk=pk).first()
+        product = Product.objects.filter(pk=pk).exclude(
+            status=Product.Status.DRAFT
+        ).first()
         if product is None:
             raise NotFound()
-        data = ProductDetailSerializer(product).data
-        data["tabs"] = {
-            "overview": product.overview,
-            "detail": product.detail,
-            "notice": product.notice,
-        }
-        if request.user.is_authenticated:
-            data["my"] = _my_block(request.user, product)
+        data = ProductDetailSerializer(
+            product, context={"request": request}
+        ).data
         return Response(data)
 
 
@@ -163,7 +318,9 @@ class SchedulePreviewView(APIView):
 
     @extend_schema(responses=SchedulePreviewSerializer)
     def get(self, request, pk):
-        product = Product.objects.filter(pk=pk).first()
+        product = Product.objects.filter(pk=pk).exclude(
+            status=Product.Status.DRAFT
+        ).first()
         if product is None:
             raise NotFound()
         try:

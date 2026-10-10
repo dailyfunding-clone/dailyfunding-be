@@ -40,6 +40,9 @@ class Investment(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [models.Index(fields=["user", "status"])]
+
 
 class RepaymentSchedule(models.Model):
     """회차별 상환 스케줄 (F-INV-08)."""
@@ -67,6 +70,7 @@ class RepaymentSchedule(models.Model):
     class Meta:
         unique_together = ("investment", "seq")
         ordering = ("investment", "seq")
+        indexes = [models.Index(fields=["due_date", "status"])]
 
     @property
     def interest_net(self):
@@ -102,3 +106,12 @@ class Reservation(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     converted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["investment"],
+                condition=models.Q(status="reserved"),
+                name="uniq_reserved_per_investment",
+            )
+        ]

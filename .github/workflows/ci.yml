@@ -1,0 +1,77 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: dailyfunding
+          POSTGRES_USER: dailyfunding
+          POSTGRES_PASSWORD: dailyfunding
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U dailyfunding"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DB_HOST: 127.0.0.1
+      DB_NAME: dailyfunding
+      DB_USER: dailyfunding
+      DB_PASSWORD: dailyfunding
+      CELERY_EAGER: "1"
+      ALLOWED_HOSTS: "*"
+      SECRET_KEY: ci-secret-key-not-for-production
+      BANK_WEBHOOK_SECRET: ci-bank-secret
+      DEBUG: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python manage.py migrate --noinput
+      - run: python manage.py makemigrations --check --dry-run
+      - run: pytest
+      - run: python manage.py spectacular --file schema.yaml --validate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: schema
+          path: schema.yaml
+          if-no-files-found: error
+
+  publish-schema:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: schema
+      - name: Publish schema.yaml to schema branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan schema-publish
+          git rm -rf . 2>/dev/null || true
+          git add schema.yaml
+          git commit -m "chore(schema): publish openapi schema [skip ci]" || exit 0
+          git push -f origin schema-publish:schema
