@@ -86,7 +86,6 @@ class InvestmentListCreateView(APIView):
         responses={201: InvestmentResponseSerializer},
     )
     def post(self, request):
-        require_reauth(request)
         s = InvestOrderSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         d = s.validated_data

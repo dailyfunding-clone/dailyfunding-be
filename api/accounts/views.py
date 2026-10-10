@@ -52,9 +52,6 @@ from api.common.throttling import (
 UNREGISTERED_BUSINESS_NUMBERS = {"0000000000"}
 
 
-UNREGISTERED_BUSINESS_NUMBERS = {"0000000000"}
-
-
 def _login_payload(user):
     return {
         "user_id": user.id,
@@ -136,12 +133,6 @@ class PinLoginView(APIView):
 class LogoutView(APIView):
     @extend_schema(request=None, responses=OkResponseSerializer)
     def post(self, request):
-        request.user.pin_hash = ""
-        request.user.pin_failures = 0
-        request.user.pin_locked_at = None
-        request.user.save(
-            update_fields=["pin_hash", "pin_failures", "pin_locked_at"]
-        )
         raw = request.COOKIES.get(REFRESH_COOKIE)
         if raw:
             try:
