@@ -52,8 +52,11 @@ class InvestmentListCreateView(APIView):
             qs = qs.filter(status=request.query_params["status"])
         if request.query_params.get("type"):
             qs = qs.filter(product__type=request.query_params["type"])
-        page = int(request.query_params.get("page", 1))
-        size = min(int(request.query_params.get("page_size", 20)), 100)
+        try:
+            page = int(request.query_params.get("page", 1))
+            size = min(int(request.query_params.get("page_size", 20)), 100)
+        except ValueError:
+            raise ValidationFailed("page and page_size must be integers")
         total = qs.count()
         rows = qs[(page - 1) * size : page * size]
         return Response(

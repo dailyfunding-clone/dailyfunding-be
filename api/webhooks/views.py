@@ -44,7 +44,7 @@ class _BankWebhookView(APIView):
     permission_classes = (AllowAny,)
     authentication_classes = ()
 
-    event_type = ""
+    event_types = frozenset()
 
     @extend_schema(
         request=inline_serializer(
@@ -72,6 +72,10 @@ class _BankWebhookView(APIView):
         event_id = payload.get("event_id", "")
         if not event_id:
             raise ValidationFailed("event_id required")
+        if payload.get("type") not in self.event_types:
+            raise ValidationFailed(
+                "unsupported event type", {"type": payload.get("type")}
+            )
 
         # 멱등: event_id 유니크. PROCESSED만 재수신 무시,
         # FAILED/HELD/RECEIVED는 같은 트랜잭션에서 재처리.
@@ -115,6 +119,8 @@ class _BankWebhookView(APIView):
 class BankDepositWebhookView(_BankWebhookView):
     """POST /api/webhooks/bank/deposit — 입금 완료 통지."""
 
+    event_types = frozenset({"deposit.completed"})
+
     def handle(self, payload, event):
         from api.accounts.models import VirtualAccount
 
@@ -142,7 +148,7 @@ class BankDepositWebhookView(_BankWebhookView):
                 user=va.user,
                 amount=amount,
                 status=DepositIntent.Status.HELD,
-                held_reason__contains=sender,
+                sender_name=sender,
             ).exists()
         )
         if already_credited or already_held:
@@ -159,7 +165,9 @@ class BankDepositWebhookView(_BankWebhookView):
         )
 
         if sender != va.holder:
-            intent = pending.first() or DepositIntent.objects.create(
+            intent = pending.filter(
+                sender_name=sender
+            ).first() or DepositIntent.objects.create(
                 id=DepositIntent.new_id(),
                 user=va.user,
                 amount=amount,
@@ -190,12 +198,17 @@ class BankDepositWebhookView(_BankWebhookView):
 class BankTransferWebhookView(_BankWebhookView):
     """POST /api/webhooks/bank/transfer — 출금 이체 결과."""
 
+    event_types = frozenset({"transfer.completed", "transfer.failed"})
+
     def handle(self, payload, event):
         wd = Withdrawal.objects.filter(id=payload.get("withdrawal_id")).first()
         if wd is None:
             event.status = WebhookEvent.Status.HELD
             return
         wd = Withdrawal.objects.select_for_update().get(pk=wd.pk)
+        if wd.status == Withdrawal.Status.REQUESTED:
+            wd.status = Withdrawal.Status.PROCESSING
+            wd.save(update_fields=["status"])
         if payload.get("type") == "transfer.failed":
             ledger.fail_withdrawal(wd, payload.get("reason", ""))
         else:

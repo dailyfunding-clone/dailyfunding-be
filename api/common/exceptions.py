@@ -150,6 +150,8 @@ def exception_handler(exc, context):
         code = "FORBIDDEN"
     elif response.status_code == 404:
         code = "NOT_FOUND"
+    elif response.status_code == 429:
+        code = "THROTTLED"
     detail = response.data
     message = detail.get("detail", "error") if isinstance(detail, dict) else "error"
     details = {k: v for k, v in detail.items() if k != "detail"} if isinstance(detail, dict) else {}

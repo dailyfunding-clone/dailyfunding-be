@@ -59,6 +59,13 @@ def staff(db):
     return User.objects.create_superuser("admin@test.local", PASSWORD, name="운영자")
 
 
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    from django.core.cache import cache
+
+    cache.clear()
+
+
 @pytest.fixture
 def api():
     return APIClient()

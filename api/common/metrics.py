@@ -8,6 +8,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api.common.throttling import VitalsThrottle
+
 
 class VitalSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
@@ -25,6 +27,7 @@ class VitalSerializer(serializers.Serializer):
 class VitalsView(APIView):
     authentication_classes = ()
     permission_classes = (AllowAny,)
+    throttle_classes = (VitalsThrottle,)
 
     @extend_schema(request=VitalSerializer, responses={204: None})
     def post(self, request):
