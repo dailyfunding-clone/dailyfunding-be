@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
@@ -54,15 +54,24 @@ jobs:
           name: schema
           path: schema.yaml
           if-no-files-found: error
+
+  publish-schema:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: schema
       - name: Publish schema.yaml to schema branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
         run: |
-          cp schema.yaml /tmp/schema.yaml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout --orphan schema-publish
           git rm -rf . 2>/dev/null || true
-          cp /tmp/schema.yaml schema.yaml
           git add schema.yaml
           git commit -m "chore(schema): publish openapi schema [skip ci]" || exit 0
           git push -f origin schema-publish:schema
