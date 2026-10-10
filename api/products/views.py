@@ -1,6 +1,10 @@
+import json
+import time
 from datetime import date
 
+from django.http import StreamingHttpResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework import serializers
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,13 +13,75 @@ from rest_framework.generics import ListAPIView
 from api.accounts.models import REAL_ESTATE_TYPES, GRADE_LIMITS
 from api.common.exceptions import NotFound, ValidationFailed
 from api.ledger import services as ledger
-from api.products.models import Product
+from api.products.models import Product, ProductProgress
 from api.products.schedule import schedule_summary
 from api.products.serializers import (
     ProductDetailSerializer,
     ProductListSerializer,
     SchedulePreviewSerializer,
 )
+
+
+class ProductProgressSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    raised_amount = serializers.IntegerField()
+    remaining = serializers.IntegerField()
+    status = serializers.ChoiceField(choices=Product.Status.choices)
+
+
+def progress_stream(ids, cursor):
+    events = ProductProgress.objects.exclude(status=Product.Status.DRAFT).exclude(
+        product__status=Product.Status.DRAFT
+    )
+    if ids:
+        events = events.filter(product_id__in=ids)
+    pending = []
+    if cursor is None:
+        pending = sorted(events.order_by("product_id", "-id").distinct("product_id"), key=lambda event: event.id)
+        cursor = 0
+    heartbeat = time.monotonic()
+    while True:
+        if not pending:
+            pending = list(events.filter(id__gt=cursor).order_by("id")[:100])
+        for event in pending:
+            data = {"id": event.product_id, "raised_amount": event.raised_amount, "remaining": event.remaining, "status": event.status}
+            cursor = event.id
+            yield f"id: {cursor}\nevent: progress\ndata: {json.dumps(data)}\n\n"
+        pending = []
+        if time.monotonic() - heartbeat >= 15:
+            yield ": heartbeat\n\n"
+            heartbeat = time.monotonic()
+        time.sleep(1)
+
+
+class ProductStreamView(APIView):
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("ids", str, description="Comma-separated positive product IDs (up to 100). Omit for all public products."),
+            OpenApiParameter("Last-Event-ID", int, location=OpenApiParameter.HEADER),
+        ],
+        responses={(200, "text/event-stream"): ProductProgressSerializer},
+    )
+    def get(self, request):
+        ids = request.query_params.get("ids")
+        cursor = request.headers.get("Last-Event-ID")
+        try:
+            ids = [int(value) for value in ids.split(",")] if ids is not None else []
+            cursor = int(cursor) if cursor is not None else None
+            if len(ids) > 100 or any(value <= 0 or value > 2**63 - 1 for value in ids):
+                raise ValueError
+            if cursor is not None and not 0 <= cursor <= 2**63 - 1:
+                raise ValueError
+        except ValueError:
+            raise ValidationFailed("Invalid product IDs or Last-Event-ID")
+        return StreamingHttpResponse(
+            progress_stream(ids, cursor),
+            content_type="text/event-stream",
+            headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+        )
 
 
 class ProductListView(ListAPIView):
