@@ -179,7 +179,7 @@ def test_webhook_failure_marks_failed_and_retry_reprocesses(api, user):
     client = APIClient(raise_request_exception=False)
     bad = deposit_webhook_payload(va.account_no, va.holder, "not-a-number")
     r = signed_post(client, "/api/webhooks/bank/deposit", bad)
-    assert r.status_code == 500
+    assert r.status_code == 400
     event = WebhookEvent.objects.get(event_id=bad["event_id"])
     assert event.status == WebhookEvent.Status.FAILED
 
