@@ -1,5 +1,5 @@
 import csv
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.http import HttpResponse
 from django.utils import timezone
@@ -29,6 +29,13 @@ from api.ledger.serializers import (
     WithdrawResponseSerializer,
     WithdrawSerializer,
 )
+
+
+def _parse_date_param(value, param):
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ValidationFailed(f"invalid {param} date")
 
 
 class DepositAccountView(APIView):
@@ -134,10 +141,15 @@ class DepositHistoryView(APIView):
         for param, lookup in (("from", "gte"), ("to", "lte")):
             val = request.query_params.get(param)
             if val:
-                qs = qs.filter(**{f"created_at__date__{lookup}": val})
+                qs = qs.filter(
+                    **{f"created_at__date__{lookup}": _parse_date_param(val, param)}
+                )
         cursor = request.query_params.get("cursor")
         if cursor:
-            qs = qs.filter(id__lt=int(cursor))
+            try:
+                qs = qs.filter(id__lt=int(cursor))
+            except ValueError:
+                raise ValidationFailed("invalid cursor")
         rows = list(qs.order_by("-id")[:100])
         next_cursor = str(rows[-1].id) if rows else None
         return Response(
@@ -239,7 +251,9 @@ class PointsHistoryView(APIView):
         for param, lookup in (("from", "gte"), ("to", "lte")):
             val = request.query_params.get(param)
             if val:
-                qs = qs.filter(**{f"created_at__date__{lookup}": val})
+                qs = qs.filter(
+                    **{f"created_at__date__{lookup}": _parse_date_param(val, param)}
+                )
         rows = qs.order_by("-id")[:500]
 
         if "text/csv" in request.headers.get("Accept", ""):

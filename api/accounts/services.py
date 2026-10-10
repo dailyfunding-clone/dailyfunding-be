@@ -3,7 +3,7 @@ import secrets
 
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from api.common.exceptions import (
@@ -72,14 +72,18 @@ def create_user_account(
         raise ValidationFailed(
             "required terms not agreed", {"agreements": missing}
         )
-    user = User.objects.create_user(
-        email=email,
-        password=password,
-        role=role,
-        name=name,
-        member_type=member_type,
-        business_number=business_number,
-    )
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(
+                email=email,
+                password=password,
+                role=role,
+                name=name,
+                member_type=member_type,
+                business_number=business_number,
+            )
+    except IntegrityError:
+        raise EmailTaken()
     for term, agreed in agreed_map.items():
         UserAgreement.objects.create(user=user, term=term, agreed=agreed)
     if role == User.Role.INVESTOR:
@@ -93,16 +97,20 @@ def verify_identity(user, carrier, name, birth, phone):
     ci = "mock-ci-" + hashlib.sha256(raw.encode()).hexdigest()[:48]
     if IdentityVerification.objects.filter(ci=ci).exclude(user=user).exists():
         raise DuplicateCi()
-    identity, _ = IdentityVerification.objects.update_or_create(
-        user=user,
-        defaults={
-            "ci": ci,
-            "name": name,
-            "birth": birth,
-            "phone": phone,
-            "carrier": carrier,
-        },
-    )
+    try:
+        with transaction.atomic():
+            identity, _ = IdentityVerification.objects.update_or_create(
+                user=user,
+                defaults={
+                    "ci": ci,
+                    "name": name,
+                    "birth": birth,
+                    "phone": phone,
+                    "carrier": carrier,
+                },
+            )
+    except IntegrityError:
+        raise DuplicateCi()
     if not user.name:
         user.name = name
         user.save(update_fields=["name"])
@@ -145,28 +153,38 @@ def grant_referral_reward(referrer_email, new_user):
 
 
 def check_pin(user, pin: str) -> bool:
-    if user.pin_locked_at is not None:
+    locked = False
+    with transaction.atomic():
+        user = User.objects.select_for_update().get(pk=user.pk)
+        if user.pin_locked_at is not None:
+            locked = True
+        elif not user.pin_registered or not check_password(pin, user.pin_hash):
+            user.pin_failures += 1
+            if user.pin_failures >= settings.PIN_MAX_FAILURES:
+                user.pin_locked_at = timezone.now()
+                locked = True
+            user.save(update_fields=["pin_failures", "pin_locked_at"])
+        else:
+            user.pin_failures = 0
+            user.save(update_fields=["pin_failures"])
+            return True
+    if locked:
         raise PinLocked()
-    if not user.pin_registered or not check_password(pin, user.pin_hash):
-        user.pin_failures += 1
-        if user.pin_failures >= settings.PIN_MAX_FAILURES:
-            user.pin_locked_at = timezone.now()
-        user.save(update_fields=["pin_failures", "pin_locked_at"])
-        if user.pin_locked_at:
-            raise PinLocked()
-        return False
-    user.pin_failures = 0
-    user.save(update_fields=["pin_failures"])
-    return True
+    return False
 
 
 def issue_app_code(user):
-    code = f"{secrets.randbelow(1_000_000):06d}"
-    return AppLoginCode.objects.create(
-        user=user,
-        code=code,
-        expires_at=timezone.now() + timezone.timedelta(seconds=60),
-    )
+    for _ in range(5):
+        try:
+            with transaction.atomic():
+                return AppLoginCode.objects.create(
+                    user=user,
+                    code=f"{secrets.randbelow(1_000_000):06d}",
+                    expires_at=timezone.now() + timezone.timedelta(seconds=60),
+                )
+        except IntegrityError:
+            continue
+    raise ValidationFailed("could not issue app code")
 
 
 def mask_email(email: str) -> str:
@@ -194,11 +212,18 @@ def issue_password_reset_token(user):
     )
 
 
+@transaction.atomic
 def reset_password(token_str: str, new_password: str):
+    from rest_framework_simplejwt.token_blacklist.models import (
+        BlacklistedToken,
+        OutstandingToken,
+    )
+
+    from api.accounts.models import ReauthToken
+
     reset = (
-        PasswordResetToken.objects.filter(
-            token=token_str, used=False, expires_at__gt=timezone.now()
-        )
+        PasswordResetToken.objects.select_for_update()
+        .filter(token=token_str, used=False, expires_at__gt=timezone.now())
         .select_related("user")
         .first()
     )
@@ -217,3 +242,7 @@ def reset_password(token_str: str, new_password: str):
     )
     reset.used = True
     reset.save(update_fields=["used"])
+    PasswordResetToken.objects.filter(user=user, used=False).update(used=True)
+    ReauthToken.objects.filter(user=user).delete()
+    for token in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=token)

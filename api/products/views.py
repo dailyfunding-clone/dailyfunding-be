@@ -100,9 +100,8 @@ def progress_stream(ids, cursor):
     Sync worker model: each open stream pins one WSGI worker plus one
     dedicated psycopg connection blocked in notifies(); disconnect is
     detected on write failure and the connection is released in finally.
-    ponytail: per-product advisory lock only orders event ids per product,
-    so an unfiltered stream can skip an event when cross-product commits
-    interleave ids; reinstate a global lock if that gap matters.
+    Event ids are commit-ordered: the DB trigger takes a global advisory
+    lock before inserting, so id > cursor never misses a late commit.
     """
     conn = _listen_connection()
     try:
@@ -193,7 +192,7 @@ class ProductListView(ListAPIView):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = Product.objects.all()
+        qs = Product.objects.exclude(status=Product.Status.DRAFT)
         p = self.request.query_params
         ids = _parse_ids(p.get("ids"))
         if ids:
@@ -203,11 +202,7 @@ class ProductListView(ListAPIView):
             qs = qs.filter(status=status)
         elif p.get("include_closed") not in ("1", "true"):
             qs = qs.exclude(
-                status__in=[
-                    Product.Status.REPAID,
-                    Product.Status.LOSS,
-                    Product.Status.DRAFT,
-                ]
+                status__in=[Product.Status.REPAID, Product.Status.LOSS]
             )
         if p.get("type"):
             qs = qs.filter(type=p["type"])
@@ -286,7 +281,9 @@ class ProductDetailView(APIView):
 
     @extend_schema(responses=ProductDetailSerializer)
     def get(self, request, pk):
-        product = Product.objects.filter(pk=pk).first()
+        product = Product.objects.filter(pk=pk).exclude(
+            status=Product.Status.DRAFT
+        ).first()
         if product is None:
             raise NotFound()
         data = ProductDetailSerializer(product).data
@@ -307,7 +304,9 @@ class SchedulePreviewView(APIView):
 
     @extend_schema(responses=SchedulePreviewSerializer)
     def get(self, request, pk):
-        product = Product.objects.filter(pk=pk).first()
+        product = Product.objects.filter(pk=pk).exclude(
+            status=Product.Status.DRAFT
+        ).first()
         if product is None:
             raise NotFound()
         try:

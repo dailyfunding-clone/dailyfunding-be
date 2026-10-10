@@ -1,7 +1,7 @@
 import calendar
 from datetime import date
 
-from django.db.models import Sum
+from django.db.models import OuterRef, Subquery, Sum
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
 from rest_framework.response import Response
@@ -134,6 +134,19 @@ class DashboardView(APIView):
         active_invs = Investment.objects.filter(
             user=user, status=Investment.Status.ACTIVE
         )
+        unpaid = RepaymentSchedule.objects.filter(
+            investment=OuterRef("pk"),
+            status__in=[
+                RepaymentSchedule.Status.SCHEDULED,
+                RepaymentSchedule.Status.OVERDUE,
+            ],
+        ).order_by("seq")
+        principal_remaining = (
+            active_invs.annotate(
+                rem=Subquery(unpaid.values("principal_balance")[:1])
+            ).aggregate(s=Sum("rem"))["s"]
+            or 0
+        )
         paid_net = (
             RepaymentSchedule.objects.filter(
                 investment__user=user, status=RepaymentSchedule.Status.PAID
@@ -189,14 +202,7 @@ class DashboardView(APIView):
                 },
                 "active": {
                     "invested": sum(i.amount for i in active_invs),
-                    "principal_remaining": sum(
-                        s.principal_balance
-                        for s in RepaymentSchedule.objects.filter(
-                            investment__in=active_invs,
-                            status=RepaymentSchedule.Status.SCHEDULED,
-                            seq=1,
-                        )
-                    ),
+                    "principal_remaining": principal_remaining,
                     "interest_received_net": active_paid_net,
                     "interest_expected_net": expected_net,
                 },

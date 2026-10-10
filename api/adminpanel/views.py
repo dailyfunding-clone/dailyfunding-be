@@ -13,6 +13,7 @@ from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api.accounts import services as account_services
 from api.accounts.models import GradeRequest, User
 from api.common.exceptions import NotFound, StateConflict, ValidationFailed
 from api.common.permissions import IsStaff
@@ -174,7 +175,9 @@ class LoanDecisionResponseSerializer(serializers.Serializer):
 
 
 class SeedProductsRequestSerializer(serializers.Serializer):
-    count = serializers.IntegerField(required=False, default=10)
+    count = serializers.IntegerField(
+        required=False, default=10, min_value=1, max_value=500
+    )
     status = serializers.ChoiceField(
         choices=Product.Status.choices, required=False
     )
@@ -229,12 +232,12 @@ class ProductListCreateView(APIView):
         missing = [k for k in required if k not in d]
         if missing:
             raise ValidationFailed("missing fields", {"missing": missing})
-        from django.db.models import Max
-
-        year = timezone.now().year
-        seq = (Product.objects.aggregate(m=Max("id"))["m"] or 0) + 1
-        d.setdefault("product_no", f"{year}-{seq}")
-        p = Product.objects.create(status=Product.Status.DRAFT, **d)
+        if "refinance_of" in d:
+            d["refinance_of_id"] = d.pop("refinance_of")
+        with transaction.atomic():
+            admin.lock_product_no()
+            d.setdefault("product_no", admin.next_product_no())
+            p = Product.objects.create(status=Product.Status.DRAFT, **d)
         return Response({"id": p.id, "product_no": p.product_no, "status": p.status}, status=201)
 
 
@@ -257,8 +260,11 @@ class ProductDetailAdminView(APIView):
         if p.status not in (Product.Status.DRAFT, Product.Status.SCHEDULED):
             raise StateConflict("only draft/scheduled products are editable")
         for k, v in s.validated_data.items():
-            setattr(p, k, v)
-        p.save()
+            setattr(p, "refinance_of_id" if k == "refinance_of" else k, v)
+        try:
+            p.save()
+        except IntegrityError:
+            raise ValidationFailed("invalid or duplicate data")
         return Response({"id": p.id, "status": p.status})
 
 
@@ -295,7 +301,10 @@ def _parse_date(request):
     raw = request.query_params.get("date") or request.data.get("date")
     if not raw:
         return timezone.now().date()
-    return datetime.fromisoformat(raw).date()
+    try:
+        return datetime.fromisoformat(raw).date()
+    except ValueError:
+        raise ValidationFailed("invalid date")
 
 
 class BatchRepayView(APIView):
@@ -405,7 +414,9 @@ class GradeRequestDetailView(APIView):
         g = GradeRequest.objects.filter(pk=pk).first()
         if g is None:
             raise NotFound()
-        action = request.data.get("action")
+        s = GradeDecisionSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        action = s.validated_data["action"]
         if g.status != GradeRequest.Status.SUBMITTED:
             raise StateConflict("already decided")
         if action == "approve":
@@ -414,11 +425,9 @@ class GradeRequestDetailView(APIView):
             g.status = GradeRequest.Status.APPROVED
             g.user.grade = g.to_grade
             g.user.save(update_fields=["grade"])
-        elif action == "reject":
-            g.status = GradeRequest.Status.REJECTED
-            g.reason = request.data.get("reason", "")
         else:
-            raise ValidationFailed("action must be approve|reject")
+            g.status = GradeRequest.Status.REJECTED
+            g.reason = s.validated_data.get("reason", "")
         g.decided_at = timezone.now()
         g.save()
         return Response({"id": g.id, "status": g.status})
@@ -509,24 +518,26 @@ class LoanApplicationDetailView(APIView):
         if action == "reject":
             app.status = LoanApplication.Status.REJECTED
         elif action == "approve":
-            from django.db.models import Max
-
             d = s.validated_data
-            year = timezone.now().year
-            seq = (Product.objects.aggregate(m=Max("id"))["m"] or 0) + 1
-            product = Product.objects.create(
-                product_no=f"{year}-{seq}",
-                name=d.get("name") or f"{app.company or app.name} 대출 {seq}호",
-                type=d.get("type", Product.Type.PERSONAL_CREDIT),
-                annual_rate=d.get("annual_rate", "12.00"),
-                term_months=app.term_months,
-                target_amount=app.amount,
-                repay_type=d.get("repay_type", Product.RepayType.EQUAL_INSTALLMENT),
-                platform_fee_rate=d.get("platform_fee_rate", "1.00"),
-                borrower_id=d.get("borrower_id", f"borrower-{app.id}"),
-                borrower_name=app.company or app.name,
-                status=Product.Status.DRAFT,
-            )
+            with transaction.atomic():
+                admin.lock_product_no()
+                product_no = admin.next_product_no()
+                product = Product.objects.create(
+                    product_no=product_no,
+                    name=d.get("name")
+                    or f"{app.company or app.name} 대출 {product_no}호",
+                    type=d.get("type", Product.Type.PERSONAL_CREDIT),
+                    annual_rate=d.get("annual_rate", "12.00"),
+                    term_months=app.term_months,
+                    target_amount=app.amount,
+                    repay_type=d.get(
+                        "repay_type", Product.RepayType.EQUAL_INSTALLMENT
+                    ),
+                    platform_fee_rate=d.get("platform_fee_rate", "1.00"),
+                    borrower_id=d.get("borrower_id", f"borrower-{app.id}"),
+                    borrower_name=app.company or app.name,
+                    status=Product.Status.DRAFT,
+                )
             app.status = LoanApplication.Status.APPROVED
             app.product = product
         else:
@@ -566,16 +577,22 @@ class SeedProductsView(APIView):
         responses={201: SeedProductsResponseSerializer},
     )
     def post(self, request):
-        count = int(request.data.get("count", 10))
-        status = request.data.get("status")  # 고정 상태(없으면 랜덤)
-        rate_min = float(request.data.get("rate_min", 6.0))
-        rate_max = float(request.data.get("rate_max", 15.0))
-        amount_min = int(request.data.get("amount_min", 10_000_000))
-        amount_max = int(request.data.get("amount_max", 500_000_000))
-        term_min = int(request.data.get("term_min", 3))
-        term_max = int(request.data.get("term_max", 24))
-        seed = request.data.get("seed")
-        rng = random.Random(seed)
+        from django.conf import settings as django_settings
+
+        if not django_settings.DEBUG:
+            raise NotFound()
+        s = SeedProductsRequestSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        d = s.validated_data
+        count = d["count"]
+        status = d.get("status")  # 고정 상태(없으면 랜덤)
+        rate_min = d.get("rate_min", 6.0)
+        rate_max = d.get("rate_max", 15.0)
+        amount_min = d.get("amount_min", 10_000_000)
+        amount_max = d.get("amount_max", 500_000_000)
+        term_min = d.get("term_min", 3)
+        term_max = d.get("term_max", 24)
+        rng = random.Random(d.get("seed"))
 
         statuses_open = [
             Product.Status.SCHEDULED,
@@ -583,48 +600,51 @@ class SeedProductsView(APIView):
             Product.Status.RECRUITING,
             Product.Status.RECRUITED,
         ]
-        from django.db.models import Max
-
-        year = timezone.now().year
-        base_seq = (Product.objects.aggregate(m=Max("id"))["m"] or 0)
         created = []
-        for i in range(count):
-            name_base, ptype = rng.choice(self.NAME_TYPES)
-            target = rng.randrange(amount_min // 10_000, amount_max // 10_000) * 10_000
-            st = status or rng.choice(statuses_open)
-            # 원장 정합성: raised_amount는 실제 투자 주문으로만 올린다.
-            # 시드 봇이 실주문을 넣어 모집액을 채운다 (대사 배치가 검증 가능).
-            if st == Product.Status.SCHEDULED:
-                fill_ratio = 0.0
-            elif st == Product.Status.RECRUITED:
-                fill_ratio = 1.0
-            else:
-                fill_ratio = rng.choice([0.2, 0.4, 0.7])
-            p = Product.objects.create(
-                product_no=f"{year}-{base_seq + i + 1}",
-                name=f"{name_base} {base_seq + i + 1}호",
-                type=ptype,
-                annual_rate=round(rng.uniform(rate_min, rate_max), 2),
-                term_months=rng.randint(term_min, term_max),
-                target_amount=target,
-                repay_type=rng.choice(list(Product.RepayType.values)),
-                platform_fee_rate=round(rng.uniform(0, 2), 2),
-                repay_day=rng.randint(1, 28),
-                borrower_id=f"borrower-{rng.randint(1, max(1, count // 3))}",
-                borrower_name=f"차주{rng.randint(1, count)}",
-                tags=rng.sample(self.TAGS, rng.randint(0, 2)),
-                status=(
-                    Product.Status.RECRUITING
-                    if st in (Product.Status.RECRUITING, Product.Status.RECRUITED)
-                    else st
-                ),
-                recruit_open_at=timezone.now()
-                if st != Product.Status.SCHEDULED
-                else None,
-            )
-            if fill_ratio > 0:
-                _seed_investments(p, int(target * fill_ratio), rng)
-            created.append(p.id)
+        with transaction.atomic():
+            admin.lock_product_no()
+            base_seq = Product.objects.aggregate(m=models.Max("id"))["m"] or 0
+            for i in range(count):
+                name_base, ptype = rng.choice(self.NAME_TYPES)
+                target = (
+                    rng.randrange(amount_min // 10_000, amount_max // 10_000)
+                    * 10_000
+                )
+                st = status or rng.choice(statuses_open)
+                # 원장 정합성: raised_amount는 실제 투자 주문으로만 올린다.
+                # 시드 봇이 실주문을 넣어 모집액을 채운다 (대사 배치가 검증 가능).
+                if st == Product.Status.SCHEDULED:
+                    fill_ratio = 0.0
+                elif st == Product.Status.RECRUITED:
+                    fill_ratio = 1.0
+                else:
+                    fill_ratio = rng.choice([0.2, 0.4, 0.7])
+                p = Product.objects.create(
+                    product_no=f"{timezone.now().year}-{base_seq + i + 1}",
+                    name=f"{name_base} {base_seq + i + 1}호",
+                    type=ptype,
+                    annual_rate=round(rng.uniform(rate_min, rate_max), 2),
+                    term_months=rng.randint(term_min, term_max),
+                    target_amount=target,
+                    repay_type=rng.choice(list(Product.RepayType.values)),
+                    platform_fee_rate=round(rng.uniform(0, 2), 2),
+                    repay_day=rng.randint(1, 28),
+                    borrower_id=f"borrower-{rng.randint(1, max(1, count // 3))}",
+                    borrower_name=f"차주{rng.randint(1, count)}",
+                    tags=rng.sample(self.TAGS, rng.randint(0, 2)),
+                    status=(
+                        Product.Status.RECRUITING
+                        if st
+                        in (Product.Status.RECRUITING, Product.Status.RECRUITED)
+                        else st
+                    ),
+                    recruit_open_at=timezone.now()
+                    if st != Product.Status.SCHEDULED
+                    else None,
+                )
+                if fill_ratio > 0:
+                    _seed_investments(p, int(target * fill_ratio), rng)
+                created.append(p.id)
         return Response({"created": len(created), "ids": created}, status=201)
 
 
@@ -649,6 +669,9 @@ def _seed_bots(n=5):
                 passed_at=timezone.now(),
                 expires_at=timezone.now() + timezone.timedelta(days=3650),
             )
+        account_services.verify_identity(
+            u, "SKT", u.name or email, "19900101", f"010999{i:05d}"
+        )
         if ledger.deposit_balance(u.id) < 1_000_000_000:
             intent = DepositIntent.objects.create(
                 id=DepositIntent.new_id(),

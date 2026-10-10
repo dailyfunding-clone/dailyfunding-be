@@ -127,6 +127,13 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "api.common.pagination.StandardPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_RATES": {
+        "auth": "20/min",
+        "pin": "10/min",
+        "app_code": "20/min",
+        "reset": "5/min",
+        "vitals": "120/min",
+    },
 }
 
 SIMPLE_JWT = {

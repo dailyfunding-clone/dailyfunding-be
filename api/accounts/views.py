@@ -40,7 +40,14 @@ from api.common.auth import (
     set_auth_cookies,
 )
 from api.common.exceptions import NotFound, Unauthorized, ValidationFailed
-
+from api.common.throttling import (
+    AppCodeExchangeThrottle,
+    AppCodeIssueThrottle,
+    AuthAnonThrottle,
+    AuthUserThrottle,
+    PasswordResetThrottle,
+    PinThrottle,
+)
 
 UNREGISTERED_BUSINESS_NUMBERS = {"0000000000"}
 
@@ -56,6 +63,7 @@ def _login_payload(user):
 
 class SignupView(APIView):
     permission_classes = (AllowAny,)
+    throttle_classes = (AuthAnonThrottle,)
     role = User.Role.INVESTOR
 
     @extend_schema(
@@ -92,6 +100,7 @@ class BorrowerSignupView(SignupView):
 
 class LoginView(APIView):
     permission_classes = (AllowAny,)
+    throttle_classes = (AuthAnonThrottle,)
 
     @extend_schema(request=LoginSerializer, responses=LoginResponseSerializer)
     def post(self, request):
@@ -109,6 +118,8 @@ class LoginView(APIView):
 
 class PinLoginView(APIView):
     """저장된 세션(로그인 상태) 사용자의 간편비밀번호 잠금 해제."""
+
+    throttle_classes = (PinThrottle,)
 
     @extend_schema(request=PinLoginSerializer, responses=LoginResponseSerializer)
     def post(self, request):
@@ -133,6 +144,7 @@ class LogoutView(APIView):
 
 class RefreshView(APIView):
     permission_classes = (AllowAny,)
+    throttle_classes = (AuthAnonThrottle,)
 
     @extend_schema(request=None, responses=LoginResponseSerializer)
     def post(self, request):
@@ -148,13 +160,15 @@ class RefreshView(APIView):
         except Exception:
             pass
         user = User.objects.filter(id=refresh["user_id"]).first()
-        if user is None:
+        if user is None or not user.is_active:
             raise Unauthorized("user not found")
         return set_auth_cookies(Response(_login_payload(user)), user)
 
 
 class IdentityVerifyView(APIView):
     """모의 본인인증 (F-AUTH-04). 서버가 CI를 발급한다."""
+
+    throttle_classes = (AuthUserThrottle,)
 
     @extend_schema(
         request=IdentityVerifySerializer,
@@ -189,6 +203,8 @@ class BusinessNumberVerifyView(APIView):
 
 
 class PinRegisterView(APIView):
+    throttle_classes = (PinThrottle,)
+
     @extend_schema(
         request=PinRegisterSerializer,
         responses=PinRegisterResponseSerializer,
@@ -201,6 +217,8 @@ class PinRegisterView(APIView):
 
 
 class ReauthView(APIView):
+    throttle_classes = (PinThrottle,)
+
     @extend_schema(request=ReauthSerializer, responses=ReauthResponseSerializer)
     def post(self, request):
         s = ReauthSerializer(data=request.data)
@@ -218,6 +236,8 @@ class ReauthView(APIView):
 class AppCodeIssueView(APIView):
     """앱(로그인 상태)이 발급하는 일회용 코드."""
 
+    throttle_classes = (AppCodeIssueThrottle,)
+
     @extend_schema(request=None, responses=AppCodeIssueResponseSerializer)
     def post(self, request):
         code = services.issue_app_code(request.user)
@@ -226,6 +246,7 @@ class AppCodeIssueView(APIView):
 
 class AppCodeExchangeView(APIView):
     permission_classes = (AllowAny,)
+    throttle_classes = (AppCodeExchangeThrottle,)
 
     @extend_schema(
         request=AppCodeExchangeSerializer, responses=LoginResponseSerializer
@@ -233,19 +254,16 @@ class AppCodeExchangeView(APIView):
     def post(self, request):
         s = AppCodeExchangeSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        code = (
-            AppLoginCode.objects.filter(
-                code=s.validated_data["code"],
-                used=False,
-                expires_at__gt=timezone.now(),
-            )
-            .select_related("user")
-            .first()
-        )
-        if code is None:
+        exchanged = AppLoginCode.objects.filter(
+            code=s.validated_data["code"],
+            used=False,
+            expires_at__gt=timezone.now(),
+        ).update(used=True)
+        if not exchanged:
             raise Unauthorized("invalid or expired code")
-        code.used = True
-        code.save(update_fields=["used"])
+        code = AppLoginCode.objects.select_related("user").get(
+            code=s.validated_data["code"]
+        )
         return set_auth_cookies(Response(_login_payload(code.user)), code.user)
 
 
@@ -253,6 +271,7 @@ class FindIdView(APIView):
     """아이디 찾기 (F-AUTH-03). 모의 SMS 본인확인."""
 
     permission_classes = (AllowAny,)
+    throttle_classes = (AuthAnonThrottle,)
 
     @extend_schema(
         request=FindIdSerializer, responses=FindIdResponseSerializer
@@ -271,6 +290,7 @@ class PasswordResetRequestView(APIView):
     """비밀번호 재설정 링크 발송 모의 (F-AUTH-03). 이메일 존재 여부를 숨긴다."""
 
     permission_classes = (AllowAny,)
+    throttle_classes = (PasswordResetThrottle,)
 
     @extend_schema(
         request=PasswordResetRequestSerializer,
@@ -290,6 +310,7 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetView(APIView):
     permission_classes = (AllowAny,)
+    throttle_classes = (PasswordResetThrottle,)
 
     @extend_schema(
         request=PasswordResetSerializer,

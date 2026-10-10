@@ -1,7 +1,8 @@
 """운영자 도메인 로직: 대출 실행, 보류 입금 수동 매칭, 대출 신청 상품화."""
 from datetime import timedelta
 
-from django.db import transaction
+from django.db import connection, transaction
+from django.db.models import Max
 from django.utils import timezone
 
 from api.common.exceptions import NotFound, StateConflict, ValidationFailed
@@ -11,6 +12,17 @@ from api.ledger.models import DepositIntent, LedgerEntry
 from api.notifications.models import Notification, notify
 from api.products.models import Product
 from api.products.schedule import _add_months, first_pay_date
+
+
+def lock_product_no():
+    """transaction.atomic 안에서 호출 — product_no 발번을 직렬화한다."""
+    with connection.cursor() as c:
+        c.execute("SELECT pg_advisory_xact_lock(hashtext('product_no'))")
+
+
+def next_product_no(offset=0):
+    seq = (Product.objects.aggregate(m=Max("id"))["m"] or 0) + 1 + offset
+    return f"{timezone.now().year}-{seq}"
 
 
 def transition_product(product: Product, to_status: str) -> Product:
