@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   test:
@@ -45,9 +45,21 @@ jobs:
       - run: python manage.py migrate --noinput
       - run: python manage.py makemigrations --check --dry-run
       - run: pytest
-      - run: python manage.py spectacular --format openapi-json --file schema.json --validate
+      - run: python manage.py spectacular --file schema.yaml --validate
       - uses: actions/upload-artifact@v4
         with:
           name: schema
-          path: schema.json
+          path: schema.yaml
           if-no-files-found: error
+      - name: Publish schema.yaml to schema branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+        run: |
+          cp schema.yaml /tmp/schema.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan schema-publish
+          git rm -rf . 2>/dev/null || true
+          cp /tmp/schema.yaml schema.yaml
+          git add schema.yaml
+          git commit -m "chore(schema): publish openapi schema [skip ci]" || exit 0
+          git push -f origin schema-publish:schema
