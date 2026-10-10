@@ -1,8 +1,9 @@
 import json
-import threading
 from datetime import date
 
 import psycopg
+import redis
+from django.conf import settings
 from django.db import connections
 from django.http import StreamingHttpResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -47,26 +48,39 @@ def _parse_ids(raw):
 HEARTBEAT_SEC = 15
 NOTIFY_CHANNEL = "product_progress"
 STREAM_MAX_PER_IP = 3
+STREAM_KEY_TTL_SEC = 60 * 60 * 24
 
-_stream_lock = threading.Lock()
-_stream_counts = {}
+_stream_redis = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
+
+_ACQUIRE_LUA = """
+local c = redis.call('INCR', KEYS[1])
+if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+return c
+"""
+
+_RELEASE_LUA = """
+local c = redis.call('DECR', KEYS[1])
+if c <= 0 then redis.call('DEL', KEYS[1]) end
+return c
+"""
+
+_acquire_script = _stream_redis.register_script(_ACQUIRE_LUA)
+_release_script = _stream_redis.register_script(_RELEASE_LUA)
+
+
+def _stream_key(ip):
+    return f"df:sse:{ip}"
 
 
 def _acquire_stream(ip):
-    with _stream_lock:
-        if _stream_counts.get(ip, 0) >= STREAM_MAX_PER_IP:
-            return False
-        _stream_counts[ip] = _stream_counts.get(ip, 0) + 1
-        return True
+    if _acquire_script(keys=[_stream_key(ip)], args=[STREAM_KEY_TTL_SEC]) > STREAM_MAX_PER_IP:
+        _release_stream(ip)
+        return False
+    return True
 
 
 def _release_stream(ip):
-    with _stream_lock:
-        left = _stream_counts.get(ip, 0) - 1
-        if left > 0:
-            _stream_counts[ip] = left
-        else:
-            _stream_counts.pop(ip, None)
+    _release_script(keys=[_stream_key(ip)])
 
 
 def _listen_connection():

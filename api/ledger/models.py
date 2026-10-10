@@ -74,11 +74,19 @@ class DepositIntent(models.Model):
     )
     held_reason = models.CharField(max_length=200, blank=True)
     event_id = models.CharField(max_length=64, blank=True)
+    transfer_id = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     credited_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         indexes = [models.Index(fields=["user", "status"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["transfer_id"],
+                condition=~models.Q(transfer_id=""),
+                name="deposit_intent_transfer_id_uniq",
+            )
+        ]
 
     @staticmethod
     def new_id():

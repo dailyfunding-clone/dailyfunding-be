@@ -1,4 +1,5 @@
 import time
+import uuid
 
 from django.conf import settings
 from django.utils import timezone
@@ -68,6 +69,7 @@ class DepositExecuteView(APIView):
             "account_no": account_no,
             "sender_name": sender,
             "amount": amount,
+            "transfer_id": f"tx-{uuid.uuid4().hex[:20]}",
             "occurred_at": timezone.now().isoformat(),
         }
         if d.get("force_bad_signature"):

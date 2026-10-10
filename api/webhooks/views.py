@@ -130,10 +130,16 @@ class BankDepositWebhookView(_BankWebhookView):
         except (TypeError, ValueError):
             raise ValidationFailed("amount must be integer")
         sender = payload.get("sender_name", "")
+        transfer_id = str(payload.get("transfer_id") or "")
 
         va = VirtualAccount.objects.filter(account_no=account_no).first()
         if va is None:
             event.status = WebhookEvent.Status.HELD
+            return
+
+        if transfer_id and DepositIntent.objects.filter(
+            transfer_id=transfer_id
+        ).exists():
             return
 
         pending = (
@@ -146,17 +152,21 @@ class BankDepositWebhookView(_BankWebhookView):
             .order_by("created_at", "id")
         )
 
-        # transfer_id가 없으므로 (user,amount,sender) dedup은
-        # 매칭할 PENDING intent가 없을 때만 적용한다 — 동일 금액/예금주의
-        # 정상 재입금(새 intent 발행)이 dedup으로 묵살되지 않도록.
+        # transfer_id 없는 페이로드만 (user,amount,sender) 휴리스틱 dedup —
+        # 매칭할 PENDING intent가 없을 때. transfer_id가 있으면 신규 이체는
+        # 같은 금액/예금주라도 별도 이체로 크레딧한다.
         if sender != va.holder:
             intent = pending.filter(sender_name=sender).first()
-            if intent is None and DepositIntent.objects.filter(
-                user=va.user,
-                amount=amount,
-                status=DepositIntent.Status.HELD,
-                sender_name=sender,
-            ).exists():
+            if (
+                intent is None
+                and not transfer_id
+                and DepositIntent.objects.filter(
+                    user=va.user,
+                    amount=amount,
+                    status=DepositIntent.Status.HELD,
+                    sender_name=sender,
+                ).exists()
+            ):
                 return
             intent = intent or DepositIntent.objects.create(
                 id=DepositIntent.new_id(),
@@ -168,18 +178,25 @@ class BankDepositWebhookView(_BankWebhookView):
             intent.status = DepositIntent.Status.HELD
             intent.held_reason = f"예금주명 불일치: {sender} != {va.holder}"
             intent.event_id = event.event_id
-            intent.save(update_fields=["status", "held_reason", "event_id"])
+            intent.transfer_id = transfer_id
+            intent.save(
+                update_fields=["status", "held_reason", "event_id", "transfer_id"]
+            )
             event.status = WebhookEvent.Status.HELD
             return
 
         # intent 매칭: 계좌 + 금액 + 신고된 예금주명 (가장 오래된 건부터)
         intent = pending.filter(sender_name=sender).first()
-        if intent is None and DepositIntent.objects.filter(
-            user=va.user,
-            amount=amount,
-            sender_name=sender,
-            status=DepositIntent.Status.CREDITED,
-        ).exists():
+        if (
+            intent is None
+            and not transfer_id
+            and DepositIntent.objects.filter(
+                user=va.user,
+                amount=amount,
+                sender_name=sender,
+                status=DepositIntent.Status.CREDITED,
+            ).exists()
+        ):
             return
         if intent is None:
             intent = DepositIntent.objects.create(
@@ -189,7 +206,8 @@ class BankDepositWebhookView(_BankWebhookView):
                 sender_name=sender,
             )
         intent.event_id = event.event_id
-        intent.save(update_fields=["event_id"])
+        intent.transfer_id = transfer_id
+        intent.save(update_fields=["event_id", "transfer_id"])
         ledger.credit_deposit(intent)
 
 

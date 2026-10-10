@@ -233,9 +233,6 @@ def test_settings_fail_fast_without_required_env(monkeypatch):
 
 @pytest.mark.django_db
 def test_product_stream_per_ip_cap(api):
-    from api.products import views as product_views
-
-    product_views._stream_counts.clear()
     responses = [api.get("/api/products/stream") for _ in range(3)]
     assert all(r.status_code == 200 for r in responses)
     r = api.get("/api/products/stream")
@@ -244,7 +241,6 @@ def test_product_stream_per_ip_cap(api):
     r = api.get("/api/products/stream")
     assert r.status_code == 200
     r.close()
-    product_views._stream_counts.clear()
 
 
 @pytest.mark.django_db
@@ -377,17 +373,47 @@ def test_deposit_webhook_transfer_level_dedup(api, user):
         amount=1_000_000,
         sender_name=va.holder,
     )
-    payload = deposit_webhook_payload(va.account_no, va.holder, 1_000_000)
+    payload = deposit_webhook_payload(
+        va.account_no, va.holder, 1_000_000, transfer_id="tx-dedup-1"
+    )
     r = signed_post(api, "/api/webhooks/bank/deposit", payload)
     assert r.status_code == 200
     assert ledger.deposit_balance(user.id) == 1_000_000
 
-    replay = deposit_webhook_payload(va.account_no, va.holder, 1_000_000)
+    replay = deposit_webhook_payload(
+        va.account_no, va.holder, 1_000_000, transfer_id="tx-dedup-1"
+    )
     assert replay["event_id"] != payload["event_id"]
     r = signed_post(api, "/api/webhooks/bank/deposit", replay)
     assert r.status_code == 200
     assert ledger.deposit_balance(user.id) == 1_000_000
     assert DepositIntent.objects.filter(user=user).count() == 1
+
+
+@pytest.mark.django_db
+def test_deposit_webhook_same_amount_new_transfer_credits(api, user):
+    va = user.virtual_account
+    DepositIntent.objects.create(
+        id=DepositIntent.new_id(),
+        user=user,
+        amount=1_000_000,
+        sender_name=va.holder,
+    )
+    first = deposit_webhook_payload(
+        va.account_no, va.holder, 1_000_000, transfer_id="tx-first"
+    )
+    r = signed_post(api, "/api/webhooks/bank/deposit", first)
+    assert r.status_code == 200
+    assert ledger.deposit_balance(user.id) == 1_000_000
+
+    second = deposit_webhook_payload(
+        va.account_no, va.holder, 1_000_000, transfer_id="tx-second"
+    )
+    assert second["transfer_id"] != first["transfer_id"]
+    r = signed_post(api, "/api/webhooks/bank/deposit", second)
+    assert r.status_code == 200
+    assert ledger.deposit_balance(user.id) == 2_000_000
+    assert DepositIntent.objects.filter(user=user).count() == 2
 
 
 @pytest.mark.django_db(transaction=True)

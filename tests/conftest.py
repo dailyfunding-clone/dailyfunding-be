@@ -66,6 +66,18 @@ def _clear_cache():
     cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def _clear_stream_counts():
+    from api.products import views as product_views
+
+    r = product_views._stream_redis
+    for key in r.scan_iter("df:sse:*"):
+        r.delete(key)
+    yield
+    for key in r.scan_iter("df:sse:*"):
+        r.delete(key)
+
+
 @pytest.fixture
 def api():
     return APIClient()
@@ -117,13 +129,14 @@ def fund(user, amount):
     return intent
 
 
-def deposit_webhook_payload(account_no, sender, amount, event_id=None):
+def deposit_webhook_payload(account_no, sender, amount, event_id=None, transfer_id=None):
     return {
         "event_id": event_id or f"evt-{uuid.uuid4().hex[:20]}",
         "type": "deposit.completed",
         "account_no": account_no,
         "sender_name": sender,
         "amount": amount,
+        "transfer_id": transfer_id or f"tx-{uuid.uuid4().hex[:20]}",
         "occurred_at": "2026-10-02T00:00:00Z",
     }
 
