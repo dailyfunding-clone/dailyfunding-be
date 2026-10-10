@@ -136,24 +136,6 @@ class BankDepositWebhookView(_BankWebhookView):
             event.status = WebhookEvent.Status.HELD
             return
 
-        already_credited = DepositIntent.objects.filter(
-            user=va.user,
-            amount=amount,
-            sender_name=sender,
-            status=DepositIntent.Status.CREDITED,
-        ).exists()
-        already_held = (
-            sender != va.holder
-            and DepositIntent.objects.filter(
-                user=va.user,
-                amount=amount,
-                status=DepositIntent.Status.HELD,
-                sender_name=sender,
-            ).exists()
-        )
-        if already_credited or already_held:
-            return
-
         pending = (
             DepositIntent.objects.select_for_update()
             .filter(
@@ -164,10 +146,19 @@ class BankDepositWebhookView(_BankWebhookView):
             .order_by("created_at", "id")
         )
 
+        # transfer_id가 없으므로 (user,amount,sender) dedup은
+        # 매칭할 PENDING intent가 없을 때만 적용한다 — 동일 금액/예금주의
+        # 정상 재입금(새 intent 발행)이 dedup으로 묵살되지 않도록.
         if sender != va.holder:
-            intent = pending.filter(
-                sender_name=sender
-            ).first() or DepositIntent.objects.create(
+            intent = pending.filter(sender_name=sender).first()
+            if intent is None and DepositIntent.objects.filter(
+                user=va.user,
+                amount=amount,
+                status=DepositIntent.Status.HELD,
+                sender_name=sender,
+            ).exists():
+                return
+            intent = intent or DepositIntent.objects.create(
                 id=DepositIntent.new_id(),
                 user=va.user,
                 amount=amount,
@@ -183,6 +174,13 @@ class BankDepositWebhookView(_BankWebhookView):
 
         # intent 매칭: 계좌 + 금액 + 신고된 예금주명 (가장 오래된 건부터)
         intent = pending.filter(sender_name=sender).first()
+        if intent is None and DepositIntent.objects.filter(
+            user=va.user,
+            amount=amount,
+            sender_name=sender,
+            status=DepositIntent.Status.CREDITED,
+        ).exists():
+            return
         if intent is None:
             intent = DepositIntent.objects.create(
                 id=DepositIntent.new_id(),

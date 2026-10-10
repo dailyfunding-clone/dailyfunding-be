@@ -154,15 +154,20 @@ class ProductStreamView(APIView):
                 raise ValueError
         except ValueError:
             raise ValidationFailed("Invalid Last-Event-ID")
-        ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
-        ip = ip or request.META.get("REMOTE_ADDR", "")
+        # X-Forwarded-For는 클라이언트가 위조 가능 — cap 회피 방지를 위해
+        # REMOTE_ADDR만 사용 (신뢰 프록시 도입 시 TRUSTED_PROXY 설정으로 확장)
+        ip = request.META.get("REMOTE_ADDR", "")
         if not _acquire_stream(ip):
             raise Throttled()
-        response = StreamingHttpResponse(
-            progress_stream(ids, cursor),
-            content_type="text/event-stream",
-            headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
-        )
+        try:
+            response = StreamingHttpResponse(
+                progress_stream(ids, cursor),
+                content_type="text/event-stream",
+                headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+            )
+        except Exception:
+            _release_stream(ip)
+            raise
         response._resource_closers.append(lambda: _release_stream(ip))
         return response
 

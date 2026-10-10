@@ -131,24 +131,25 @@ def register_pin(user, pin: str):
 def grant_referral_reward(referrer_email, new_user):
     if not referrer_email or referrer_email.lower() == new_user.email.lower():
         return False
-    referrer = User.objects.filter(email=referrer_email).first()
-    if referrer is None:
-        return False
     from api.ledger.models import PointEntry
     from api.ledger.services import grant_points
 
-    rewards = PointEntry.objects.filter(
-        user=referrer, kind=PointEntry.Kind.EARN, ref_type="referral"
-    ).count()
-    if rewards >= settings.REFERRAL_MAX_REWARDS:
-        return False
-    grant_points(
-        referrer,
-        2000,
-        ref_type="referral",
-        ref_id=str(new_user.id),
-        memo="친구 추천",
-    )
+    with transaction.atomic():
+        referrer = User.objects.select_for_update().filter(email=referrer_email).first()
+        if referrer is None:
+            return False
+        rewards = PointEntry.objects.filter(
+            user=referrer, kind=PointEntry.Kind.EARN, ref_type="referral"
+        ).count()
+        if rewards >= settings.REFERRAL_MAX_REWARDS:
+            return False
+        grant_points(
+            referrer,
+            2000,
+            ref_type="referral",
+            ref_id=str(new_user.id),
+            memo="친구 추천",
+        )
     return True
 
 

@@ -98,6 +98,10 @@ def repay_daily(run_date=None):
                 Product.Status.REPAYING,
                 Product.Status.OVERDUE,
             ],
+            investment__status__in=[
+                Investment.Status.ACTIVE,
+                Investment.Status.OVERDUE,
+            ],
         )
         for s in overdue_qs:
             s.status = RepaymentSchedule.Status.OVERDUE
