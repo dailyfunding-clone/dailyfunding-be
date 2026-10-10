@@ -84,7 +84,7 @@ DATABASES = {
         "PASSWORD": env("DB_PASSWORD", "dailyfunding"),
         "HOST": env("DB_HOST", "127.0.0.1"),
         "PORT": env("DB_PORT", "5432"),
-        "CONN_MAX_AGE": 60,
+        "CONN_MAX_AGE": int(env("CONN_MAX_AGE", "0")),
         "TEST": {"NAME": "dailyfunding_test"},
     }
 }
@@ -130,6 +130,13 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "DailyFunding Clone API",
     "VERSION": "2.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {"api.metrics": {"handlers": ["console"], "level": "INFO"}},
 }
 
 REDIS_URL = env("REDIS_URL", "redis://127.0.0.1:6379/0")
