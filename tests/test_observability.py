@@ -7,6 +7,7 @@ from django.db import transaction
 
 from api.adminpanel.services import execute_loan
 from api.investments.services import place_investment
+from api.products import views
 from api.products.models import Product
 from jobs.tasks import repay_daily
 from tests.conftest import fund
@@ -67,8 +68,11 @@ def test_stream_replays_investment_and_repayment(api, user, product):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_stream_filters_and_polls_bulk_changes_without_rolled_back_events(api, product, monkeypatch):
-    monkeypatch.setattr(time, "sleep", lambda _: None)
+def test_stream_filters_and_emits_committed_changes_via_notify(api, product, monkeypatch):
+    def boom(_):
+        raise AssertionError("stream must not sleep-poll")
+
+    monkeypatch.setattr(time, "sleep", boom)
     Product.objects.create(product_no="other", name="other", type="scf", annual_rate=9, term_months=1, target_amount=50, repay_type="bullet", borrower_id="other", status="recruiting")
     response = api.get(f"/api/products/stream?ids={product.id}")
     assert response.status_code == 200
@@ -85,18 +89,33 @@ def test_stream_filters_and_polls_bulk_changes_without_rolled_back_events(api, p
 
 
 @pytest.mark.django_db(transaction=True)
-def test_stream_heartbeat_after_fifteen_seconds(api, product, monkeypatch):
-    now = [0]
-    monkeypatch.setattr(time, "monotonic", lambda: now[0])
-    monkeypatch.setattr(time, "sleep", lambda seconds: now.__setitem__(0, now[0] + seconds))
+def test_stream_heartbeat_on_notify_timeout(api, product, monkeypatch):
+    monkeypatch.setattr(views, "HEARTBEAT_SEC", 0.05)
     response = api.get(f"/api/products/stream?ids={product.id}")
     assert response.status_code == 200
     try:
         event(response)
         assert next(response.streaming_content) == b": heartbeat\n\n"
-        assert now[0] == 15
     finally:
         response.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_stream_closes_notify_connection_on_disconnect(api, product, monkeypatch):
+    conns = []
+    original = views._listen_connection
+    monkeypatch.setattr(
+        views,
+        "_listen_connection",
+        lambda: conns.append(original()) or conns[-1],
+    )
+    response = api.get(f"/api/products/stream?ids={product.id}")
+    assert response.status_code == 200
+    try:
+        event(response)
+    finally:
+        response.close()
+    assert conns and conns[0].closed
 
 
 @pytest.mark.django_db(transaction=True)

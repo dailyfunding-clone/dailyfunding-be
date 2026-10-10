@@ -11,7 +11,7 @@ from api.investments.models import RepaymentSchedule, Reservation
 from api.investments.services import place_investment
 from api.ledger import services as ledger
 from api.ledger.models import IdempotencyRecord
-from api.products.models import Product
+from api.products.models import Product, ProductProgress
 from jobs.tasks import repay_daily
 from tests.conftest import fund, reauth_header
 
@@ -143,3 +143,22 @@ def test_purge_idempotency_records(user):
     purge_idempotency_records()
     assert not IdempotencyRecord.objects.filter(pk=old.pk).exists()
     assert IdempotencyRecord.objects.filter(pk=fresh.pk).exists()
+
+
+@pytest.mark.django_db
+def test_purge_product_progress_keeps_latest_and_fresh(product):
+    rows = [
+        ProductProgress.objects.create(
+            product=product, raised_amount=i, remaining=100 - i, status="recruiting"
+        )
+        for i in range(4)
+    ]
+    ProductProgress.objects.exclude(pk=rows[0].pk).update(
+        created_at=timezone.now() - timedelta(hours=25)
+    )
+    from jobs.tasks import purge_product_progress
+
+    result = purge_product_progress()
+    assert result == {"deleted": 2}
+    remaining = set(ProductProgress.objects.values_list("id", flat=True))
+    assert remaining == {rows[0].id, rows[3].id}

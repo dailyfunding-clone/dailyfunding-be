@@ -4,14 +4,14 @@ from datetime import date, datetime
 
 from celery import shared_task
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Max, Sum
 from django.utils import timezone
 
 from api.investments.models import Investment, RepaymentSchedule
 from api.ledger import services as ledger
 from api.ledger.models import LedgerEntry
 from api.notifications.models import Notification, notify
-from api.products.models import Product
+from api.products.models import Product, ProductProgress
 from jobs.models import BatchRun, ReconcileReport
 
 logger = logging.getLogger(__name__)
@@ -274,6 +274,24 @@ def purge_idempotency_records():
     deleted, _ = IdempotencyRecord.objects.filter(
         created_at__lt=cutoff
     ).delete()
+    return {"deleted": deleted}
+
+
+@shared_task(name="jobs.tasks.purge_product_progress")
+def purge_product_progress():
+    """productprogress.purge: 24h 경과 진행 이벤트 삭제. 상품별 최신 1건은
+    스트림 스냅샷용으로 항상 유지."""
+    cutoff = timezone.now() - timezone.timedelta(hours=24)
+    latest = (
+        ProductProgress.objects.values("product_id")
+        .annotate(latest_id=Max("id"))
+        .values("latest_id")
+    )
+    deleted, _ = (
+        ProductProgress.objects.filter(created_at__lt=cutoff)
+        .exclude(id__in=latest)
+        .delete()
+    )
     return {"deleted": deleted}
 
 

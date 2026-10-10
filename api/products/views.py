@@ -1,7 +1,8 @@
 import json
-import time
 from datetime import date
 
+import psycopg
+from django.db import connections
 from django.http import StreamingHttpResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
@@ -41,29 +42,74 @@ def _parse_ids(raw):
     return ids
 
 
-def progress_stream(ids, cursor):
-    events = ProductProgress.objects.exclude(status=Product.Status.DRAFT).exclude(
-        product__status=Product.Status.DRAFT
+HEARTBEAT_SEC = 15
+NOTIFY_CHANNEL = "product_progress"
+
+
+def _listen_connection():
+    db = connections["default"].settings_dict
+    conn = psycopg.connect(
+        dbname=db["NAME"],
+        user=db["USER"],
+        password=db["PASSWORD"],
+        host=db["HOST"],
+        port=db["PORT"],
+        autocommit=True,
     )
-    if ids:
-        events = events.filter(product_id__in=ids)
-    pending = []
-    if cursor is None:
-        pending = sorted(events.order_by("product_id", "-id").distinct("product_id"), key=lambda event: event.id)
-        cursor = 0
-    heartbeat = time.monotonic()
-    while True:
-        if not pending:
-            pending = list(events.filter(id__gt=cursor).order_by("id")[:100])
-        for event in pending:
-            data = {"id": event.product_id, "raised_amount": event.raised_amount, "remaining": event.remaining, "status": event.status}
-            cursor = event.id
-            yield f"id: {cursor}\nevent: progress\ndata: {json.dumps(data)}\n\n"
+    conn.execute(f"LISTEN {NOTIFY_CHANNEL}")
+    return conn
+
+
+def _await_notify(conn, ids, timeout):
+    for notify in conn.notifies(timeout=timeout):
+        try:
+            payload = json.loads(notify.payload)
+        except ValueError:
+            continue
+        if not ids or payload.get("product_id") in ids:
+            return True
+    return False
+
+
+def progress_stream(ids, cursor):
+    """SSE stream over PostgreSQL LISTEN/NOTIFY.
+
+    Sync worker model: each open stream pins one WSGI worker plus one
+    dedicated psycopg connection blocked in notifies(); disconnect is
+    detected on write failure and the connection is released in finally.
+    ponytail: per-product advisory lock only orders event ids per product,
+    so an unfiltered stream can skip an event when cross-product commits
+    interleave ids; reinstate a global lock if that gap matters.
+    """
+    conn = _listen_connection()
+    try:
+        events = ProductProgress.objects.exclude(status=Product.Status.DRAFT).exclude(
+            product__status=Product.Status.DRAFT
+        )
+        if ids:
+            events = events.filter(product_id__in=ids)
         pending = []
-        if time.monotonic() - heartbeat >= 15:
-            yield ": heartbeat\n\n"
-            heartbeat = time.monotonic()
-        time.sleep(1)
+        if cursor is None:
+            pending = sorted(events.order_by("product_id", "-id").distinct("product_id"), key=lambda event: event.id)
+            cursor = 0
+        fetch_more = True
+        while True:
+            if fetch_more and not pending:
+                pending = list(events.filter(id__gt=cursor).order_by("id")[:100])
+            for event in pending:
+                data = {"id": event.product_id, "raised_amount": event.raised_amount, "remaining": event.remaining, "status": event.status}
+                cursor = event.id
+                yield f"id: {cursor}\nevent: progress\ndata: {json.dumps(data)}\n\n"
+            fetch_more = len(pending) == 100
+            pending = []
+            if fetch_more:
+                continue
+            if _await_notify(conn, ids, HEARTBEAT_SEC):
+                fetch_more = True
+            else:
+                yield ": heartbeat\n\n"
+    finally:
+        conn.close()
 
 
 class ProductStreamView(APIView):

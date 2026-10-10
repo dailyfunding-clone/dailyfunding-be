@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.functions import Now
 
 from api.common.exceptions import StateConflict
 
@@ -106,9 +107,11 @@ class ProductDocument(models.Model):
 
 
 class ProductProgress(models.Model):
-    # ponytail: append-only event log, unbounded growth; add created_at +
-    # retention purge when row count matters (id cursor ordering suffices now)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     raised_amount = models.BigIntegerField()
     remaining = models.BigIntegerField()
     status = models.CharField(max_length=12)
+    created_at = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        indexes = [models.Index(fields=["created_at"])]
