@@ -289,14 +289,9 @@ class ProductDetailView(APIView):
         product = Product.objects.filter(pk=pk).first()
         if product is None:
             raise NotFound()
-        data = ProductDetailSerializer(product).data
-        data["tabs"] = {
-            "overview": product.overview,
-            "detail": product.detail,
-            "notice": product.notice,
-        }
-        if request.user.is_authenticated:
-            data["my"] = _my_block(request.user, product)
+        data = ProductDetailSerializer(
+            product, context={"request": request}
+        ).data
         return Response(data)
 
 
