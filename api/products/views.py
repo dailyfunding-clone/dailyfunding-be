@@ -191,7 +191,13 @@ class ProductStreamView(APIView):
             response = StreamingHttpResponse(
                 progress_stream(ids, cursor),
                 content_type="text/event-stream",
-                headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+                headers={
+                    "X-Accel-Buffering": "no",
+                    "Cache-Control": "no-cache, no-transform",
+                    # 프록시(Next rewrite)가 SSE를 gzip으로 묶어 EventSource가
+                    # 수신하지 못하는 결함 방지 — 스트림은 압축 대상이 아님
+                    "Content-Encoding": "identity",
+                },
             )
         except Exception:
             _release_stream(ip)

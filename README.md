@@ -48,6 +48,22 @@ python manage.py spectacular --format openapi-json --file schema.json
 python ../scripts/e2e-lifecycle.py              # 가입→입금→투자→상환→출금 E2E (runserver 기동 상태에서)
 ```
 
+## 관리자 화면 (bo)
+
+운영 UI는 `dailyfunding-fe` 레포의 `apps/bo`(Next.js)가 제공한다. 이 API의 `api/adminpanel` 엔드포인트를 소비한다.
+
+| 상품 관리 | 배치 | 예치금 보류 |
+|---|---|---|
+| ![상품 관리](https://github.com/dailyfunding-clone/dailyfunding-fe/raw/develop/docs/screenshots/bo/products.png) | ![배치](https://github.com/dailyfunding-clone/dailyfunding-fe/raw/develop/docs/screenshots/bo/batch.png) | ![예치금 보류](https://github.com/dailyfunding-clone/dailyfunding-fe/raw/develop/docs/screenshots/bo/deposit-holds.png) |
+
+| 등급 변경 신청 | 대출 신청 | 콘텐츠 |
+|---|---|---|
+| ![등급 변경](https://github.com/dailyfunding-clone/dailyfunding-fe/raw/develop/docs/screenshots/bo/grade-requests.png) | ![대출 신청](https://github.com/dailyfunding-clone/dailyfunding-fe/raw/develop/docs/screenshots/bo/loan-applications.png) | ![콘텐츠](https://github.com/dailyfunding-clone/dailyfunding-fe/raw/develop/docs/screenshots/bo/contents.png) |
+
+| 로그인 | 시드 |
+|---|---|
+| ![로그인](https://github.com/dailyfunding-clone/dailyfunding-fe/raw/develop/docs/screenshots/bo/signin.png) | ![시드](https://github.com/dailyfunding-clone/dailyfunding-fe/raw/develop/docs/screenshots/bo/seed.png) |
+
 ## 운영자 유틸
 
 - `POST /api/admin/seed/products` — 시드 상품 생성. `raised_amount`는 시드 봇의 실제 투자 주문으로만 채워 원장 정합성을 유지한다.

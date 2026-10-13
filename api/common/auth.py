@@ -17,6 +17,17 @@ CSRF_HEADER = "X-CSRF-Token"
 
 _SAFE_METHODS = ("GET", "HEAD", "OPTIONS", "TRACE")
 
+# Token-issuing endpoints authenticate by credential or one-time code,
+# not by session cookie, so the double-submit gate does not apply. The
+# native app exchanges its code from a client that shares the WebView
+# cookie jar but cannot echo X-CSRF-Token.
+_CREDENTIAL_PATHS = (
+    "/api/auth/login",
+    "/api/auth/login/pin",
+    "/api/auth/app-code/exchange",
+    "/api/auth/refresh",
+)
+
 
 class CsrfDoubleSubmitMiddleware:
     """Cookie-authenticated mutations must echo the csrf cookie in
@@ -26,9 +37,13 @@ class CsrfDoubleSubmitMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.method not in _SAFE_METHODS and (
-            request.COOKIES.get(ACCESS_COOKIE)
-            or request.COOKIES.get(REFRESH_COOKIE)
+        if (
+            request.method not in _SAFE_METHODS
+            and request.path not in _CREDENTIAL_PATHS
+            and (
+                request.COOKIES.get(ACCESS_COOKIE)
+                or request.COOKIES.get(REFRESH_COOKIE)
+            )
         ):
             cookie = request.COOKIES.get(CSRF_COOKIE, "")
             header = request.headers.get(CSRF_HEADER, "")
@@ -60,9 +75,9 @@ class CookieJWTAuthentication(JWTAuthentication):
 
 
 def set_auth_cookies(
-    response: Response, user, persistent: bool = True
+    response: Response, user, persistent: bool = True, refresh=None
 ) -> Response:
-    refresh = RefreshToken.for_user(user)
+    refresh = refresh or RefreshToken.for_user(user)
     access_max_age = (
         int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
         if persistent

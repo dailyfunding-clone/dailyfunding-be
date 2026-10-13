@@ -162,7 +162,15 @@ class RefreshView(APIView):
         user = User.objects.filter(id=refresh["user_id"]).first()
         if user is None or not user.is_active:
             raise Unauthorized("user not found")
-        return set_auth_cookies(Response(_login_payload(user)), user)
+        rotated = RefreshToken.for_user(user)
+        payload = _login_payload(user)
+        if request.data.get("refresh"):
+            payload = {
+                **payload,
+                "access_token": str(rotated.access_token),
+                "refresh_token": str(rotated),
+            }
+        return set_auth_cookies(Response(payload), user, refresh=rotated)
 
 
 class IdentityVerifyView(APIView):
@@ -264,7 +272,13 @@ class AppCodeExchangeView(APIView):
         code = AppLoginCode.objects.select_related("user").get(
             code=s.validated_data["code"]
         )
-        return set_auth_cookies(Response(_login_payload(code.user)), code.user)
+        refresh = RefreshToken.for_user(code.user)
+        payload = {
+            **_login_payload(code.user),
+            "access_token": str(refresh.access_token),
+            "refresh_token": str(refresh),
+        }
+        return set_auth_cookies(Response(payload), code.user, refresh=refresh)
 
 
 class FindIdView(APIView):

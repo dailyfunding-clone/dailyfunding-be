@@ -102,9 +102,25 @@ def test_refresh_blacklists_presented_token(api, user):
         HTTP_X_CSRF_TOKEN=api.cookies["csrf"].value,
     )
     assert r.status_code == 200
-    assert "access_token" not in r.json()
+    assert "access_token" in r.json()
+    assert "refresh_token" in r.json()
     outstanding = OutstandingToken.objects.get(token=old_refresh)
     assert BlacklistedToken.objects.filter(token=outstanding).exists()
+
+
+@pytest.mark.django_db
+def test_refresh_via_cookie_omits_body_tokens(api, user):
+    api.post(
+        "/api/auth/login", {"email": user.email, "password": PASSWORD}, format="json"
+    )
+    r = api.post(
+        "/api/auth/refresh",
+        {},
+        format="json",
+        HTTP_X_CSRF_TOKEN=api.cookies["csrf"].value,
+    )
+    assert r.status_code == 200
+    assert "access_token" not in r.json()
 
 
 @pytest.mark.django_db
