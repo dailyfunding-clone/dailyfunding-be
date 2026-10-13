@@ -9,7 +9,9 @@ from django.http import StreamingHttpResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
 from rest_framework.exceptions import Throttled
+from rest_framework.negotiation import DefaultContentNegotiation
 from rest_framework.permissions import AllowAny
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
@@ -148,9 +150,21 @@ def progress_stream(ids, cursor):
         conn.close()
 
 
+class _StreamNegotiation(DefaultContentNegotiation):
+    """SSE endpoint must not run accept-header negotiation.
+
+    EventSource always sends Accept: text/event-stream, which matches no
+    DRF renderer and fails content negotiation with 406 before get() runs.
+    """
+
+    def select_renderer(self, request, renderers, format_suffix=None):
+        return JSONRenderer(), "application/json"
+
+
 class ProductStreamView(APIView):
     authentication_classes = ()
     permission_classes = (AllowAny,)
+    content_negotiation_class = _StreamNegotiation
 
     @extend_schema(
         parameters=[
@@ -177,7 +191,13 @@ class ProductStreamView(APIView):
             response = StreamingHttpResponse(
                 progress_stream(ids, cursor),
                 content_type="text/event-stream",
-                headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+                headers={
+                    "X-Accel-Buffering": "no",
+                    "Cache-Control": "no-cache, no-transform",
+                    # 프록시(Next rewrite)가 SSE를 gzip으로 묶어 EventSource가
+                    # 수신하지 못하는 결함 방지 — 스트림은 압축 대상이 아님
+                    "Content-Encoding": "identity",
+                },
             )
         except Exception:
             _release_stream(ip)
